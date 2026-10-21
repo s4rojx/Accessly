@@ -1,8 +1,11 @@
 package com.assessly.exam;
 
+import com.assessly.attempt.AttemptEntity;
+import com.assessly.attempt.AttemptRepository;
 import com.assessly.question.QuestionEntity;
 import com.assessly.question.QuestionDtos;
 import com.assessly.question.QuestionService;
+import com.assessly.result.ResultRepository;
 import com.assessly.shared.ApiException;
 import com.assessly.user.AuthRole;
 import com.assessly.user.UserEntity;
@@ -25,15 +28,20 @@ public class ExamService {
     private final ExamCandidateRepository candidates;
     private final QuestionService questionService;
     private final UserRepository users;
+    private final AttemptRepository attempts;
+    private final ResultRepository results;
     private final Clock clock = Clock.systemUTC();
 
     public ExamService(ExamRepository exams, ExamQuestionRepository examQuestions, ExamCandidateRepository candidates,
-                       QuestionService questionService, UserRepository users) {
+                       QuestionService questionService, UserRepository users, AttemptRepository attempts,
+                       ResultRepository results) {
         this.exams = exams;
         this.examQuestions = examQuestions;
         this.candidates = candidates;
         this.questionService = questionService;
         this.users = users;
+        this.attempts = attempts;
+        this.results = results;
     }
 
     @Transactional(readOnly = true)
@@ -141,9 +149,12 @@ public class ExamService {
 
     private ExamDtos.CandidateResponse toCandidate(ExamEntity exam, UUID candidateId) {
         List<QuestionEntity> selected = selectedQuestions(exam);
+        AttemptEntity attempt = attempts.findByExamIdAndCandidateId(exam.getId(), candidateId).orElse(null);
+        String attemptStatus = attempt == null ? "NOT_STARTED" : attempt.getStatus();
+        boolean resultPublished = results.findByExamIdAndCandidateId(exam.getId(), candidateId).map(result -> result.isPublished()).orElse(false);
         return new ExamDtos.CandidateResponse(exam.getId(), exam.getTitle(), exam.getSubject(), exam.getDescription(), exam.getWindowStartTime(),
                 exam.getWindowEndTime(), exam.getDurationMinutes(), maximumMarks(selected), selected.stream().map(questionService::toCandidate).toList(),
-                status(exam), exam.isShuffleQuestions(), exam.isShuffleOptions(), false, "NOT_STARTED", true);
+                status(exam), exam.isShuffleQuestions(), exam.isShuffleOptions(), resultPublished, attemptStatus, true);
     }
 
     private String status(ExamEntity exam) {
