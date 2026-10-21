@@ -1,0 +1,41 @@
+# Dependencies
+**/node_modules/
+
+# Build and test output
+**/dist/
+**/build/
+**/coverage/
+**/.vite/
+**/*.tsbuildinfo
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+**/application-local.yml
+**/application-local.yaml
+**/application-local.properties
+
+# Logs and runtime files
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+# IDE and operating-system files
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.iml
+.classpath
+.project
+.settings/
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
