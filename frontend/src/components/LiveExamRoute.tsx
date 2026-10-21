@@ -15,7 +15,7 @@ export function LiveExamRoute() {
   const [attempt, setAttempt] = useState<Attempt | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [draftSelections, setDraftSelections] = useState<Record<string, string[]>>({});
-  const [remaining, setRemaining] = useState(0);
+  const [remaining, setRemaining] = useState<number | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const [receipt, setReceipt] = useState<Attempt['submissionReceipt']>();
@@ -27,7 +27,9 @@ export function LiveExamRoute() {
     if (!examId) return;
     api.startAttempt(examId).then((loaded) => {
       setAttempt(loaded);
-      clockOffset.current = loaded.serverTimeEpochMs - Date.now();
+      const offset = loaded.serverTimeEpochMs - Date.now();
+      clockOffset.current = offset;
+      setRemaining(Math.max(0, loaded.effectiveEndEpochMs - (Date.now() + offset)));
       setDraftSelections(Object.fromEntries(Object.entries(loaded.answers).map(([id, answer]) => [id, answer.selectedOptionIds])));
     }).catch((reason) => setError(reason instanceof ApiError ? reason.message : 'Unable to start the examination.'));
   }, [examId]);
@@ -58,7 +60,7 @@ export function LiveExamRoute() {
   }, [attempt, examId]);
 
   useEffect(() => {
-    if (remaining === 0 && attempt?.status === 'IN_PROGRESS' && !receipt) void submit();
+    if (remaining !== null && remaining === 0 && attempt?.status === 'IN_PROGRESS' && !receipt) void submit();
   }, [attempt?.status, receipt, remaining, submit]);
 
   const currentQuestion = attempt?.questions[currentIndex];
@@ -90,10 +92,12 @@ export function LiveExamRoute() {
   }, [attempt, examId, pending]);
 
   useEffect(() => {
-    if (!currentQuestion || currentAnswer?.state !== 'NOT_VISITED' || visited.current.has(currentQuestion.id)) return;
-    visited.current.add(currentQuestion.id);
-    void sendAction('VISIT_QUESTION', currentQuestion.id, selected);
-  }, [currentAnswer?.state, currentQuestion, selected, sendAction]);
+    if (pending || !currentQuestion || currentAnswer?.state !== 'NOT_VISITED' || visited.current.has(currentQuestion.id)) return;
+    const questionId = currentQuestion.id;
+    void sendAction('VISIT_QUESTION', questionId, selected).then((saved) => {
+      if (saved) visited.current.add(questionId);
+    });
+  }, [currentAnswer?.state, currentQuestion, pending, selected, sendAction]);
 
   const statusCounts = useMemo(() => Object.values(attempt?.answers ?? {}).reduce<Record<string, number>>((counts, answer) => {
     counts[answer.state] = (counts[answer.state] ?? 0) + 1;
@@ -111,7 +115,7 @@ export function LiveExamRoute() {
   const notVisitedCount = statusCounts.NOT_VISITED ?? 0;
 
   return <div className="exam-shell">
-    <header className="exam-topbar"><div className="logo">assessly</div><div className="exam-title"><strong>Live examination</strong><span>Question {currentIndex + 1} of {attempt.questions.length}</span></div><div className="exam-clock"><Clock3 size={16} /><strong>{formatRemaining(remaining)}</strong><span>Server-synchronized</span></div><span className="badge green"><span className="live-dot" />Autosave active</span></header>
+    <header className="exam-topbar"><div className="logo">assessly</div><div className="exam-title"><strong>Live examination</strong><span>Question {currentIndex + 1} of {attempt.questions.length}</span></div><div className="exam-clock"><Clock3 size={16} /><strong>{formatRemaining(remaining ?? 0)}</strong><span>Server-synchronized</span></div><span className="badge green"><span className="live-dot" />Autosave active</span></header>
     <main className="exam-body">
       <ExamQuestionPanel question={currentQuestion} questionIndex={currentIndex} total={attempt.questions.length} selected={selected} pending={pending} error={error} onChoose={(optionId) => setDraftSelections((current) => ({ ...current, [currentQuestion.id]: currentQuestion.type === 'MCQ_SINGLE' ? [optionId] : current[currentQuestion.id]?.includes(optionId) ? current[currentQuestion.id].filter((id) => id !== optionId) : [...(current[currentQuestion.id] ?? []), optionId] }))} onPrevious={() => setCurrentIndex((current) => Math.max(0, current - 1))} onClear={clear} onReview={markReview} onSaveNext={() => void saveNext()} previousDisabled={currentIndex === 0 || pending} lastQuestion={currentIndex === attempt.questions.length - 1} />
       <aside className="exam-sidebar"><div><div className="eyebrow">Navigation</div><h2>Question palette</h2></div><div className="palette-grid">{attempt.questions.map((question, index) => { const state = attempt.answers[question.id]?.state ?? 'NOT_VISITED'; return <button type="button" key={question.id} className={`palette-item ${state.toLowerCase()} ${index === currentIndex ? 'current' : ''}`} onClick={() => setCurrentIndex(index)} aria-label={`Question ${index + 1}, ${state.replaceAll('_', ' ').toLowerCase()}`}>{index + 1}</button>; })}</div><div className="palette-key"><span><i className="dot green" />Answered ({statusCounts.ANSWERED ?? 0})</span><span><i className="dot amber" />Review ({(statusCounts.MARKED_FOR_REVIEW ?? 0) + (statusCounts.ANSWERED_AND_MARKED_FOR_REVIEW ?? 0)})</span><span><i className="dot red" />Not answered ({statusCounts.NOT_ANSWERED ?? 0})</span><span><i className="dot slate" />Not visited ({notVisitedCount})</span></div><div className="exam-submit"><div><strong>Ready to finish?</strong><span className="muted">Review your palette before submitting.</span></div><button type="button" className="button button-primary" disabled={pending} onClick={() => { if (window.confirm('Submit your examination now? You will not be able to change your answers.')) void submit(); }}><Send size={16} />Final submit</button></div></aside>

@@ -66,6 +66,8 @@ public class AttemptService {
     @Transactional
     public AttemptDtos.AttemptResponse start(UUID candidateId, UUID examId) {
         ExamEntity exam = candidateExam(candidateId, examId);
+        roster.findByExamIdAndCandidateIdForUpdate(examId, candidateId)
+                .orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN, "ROSTER_ACCESS_DENIED", "You are not enrolled in this examination"));
         Instant now = clock.instant();
         AttemptEntity existing = attempts.findByExamIdAndCandidateId(examId, candidateId).orElse(null);
         if (existing != null) {
@@ -99,7 +101,7 @@ public class AttemptService {
         return toResponse(attempt);
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = ApiException.class)
     public AttemptDtos.ActionResponse action(UUID candidateId, UUID examId, AttemptDtos.ActionRequest request) {
         candidateExam(candidateId, examId);
         AttemptEntity attempt = lockedAttempt(candidateId, examId);
@@ -168,6 +170,12 @@ public class AttemptService {
                 .orElseThrow(() -> notFound("EXAM_NOT_FOUND", "Exam not found"));
         if (!exam.isPublished()) throw new ApiException(HttpStatus.BAD_REQUEST, "EXAM_NOT_PUBLISHED", "Only published exams can publish results");
         Instant now = clock.instant();
+        if (!now.isAfter(exam.getWindowEndTime())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "EXAM_NOT_CONCLUDED", "Results can be published only after the examination window ends");
+        }
+        for (AttemptEntity attempt : attempts.findByExamIdAndStatus(examId, "IN_PROGRESS")) {
+            expireAndGrade(attempt, now);
+        }
         List<ResultEntity> examResults = results.findByExamId(examId);
         int newlyPublished = (int) examResults.stream().filter(result -> !result.isPublished()).peek(result -> result.publish(now)).count();
         results.saveAll(examResults);

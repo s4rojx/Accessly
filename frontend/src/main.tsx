@@ -80,7 +80,10 @@ function Exams() {
   if (!exams) return <LoadingState />;
   return <><PageHeader eyebrow="Candidate workspace" title="My examinations" description="Your rostered assessment windows and publication status." /><div className="exam-list">{exams.length === 0 ? <div className="empty-state card"><BookOpen size={27} /><h2>No examinations assigned</h2><p className="muted">An administrator will add you to an assessment roster when it is ready.</p></div> : exams.map((exam) => <ExamRow exam={exam} key={exam.id} />)}</div></>;
 }
-function ExamRow({ exam }: { exam: Exam }) { return <article className="exam-row card"><div className="exam-row-icon"><BookOpen size={19} /></div><div className="exam-row-main"><div className="exam-row-title"><h3>{exam.title}</h3><Badge tone={exam.status === 'AVAILABLE' ? 'green' : exam.status === 'COMPLETED' ? 'slate' : 'blue'}>{exam.status.replace('_', ' ')}</Badge></div><p className="muted">{exam.subject} · {new Date(exam.start).toLocaleDateString()} · {exam.durationMinutes} min</p><div className="row-meta"><span><FileQuestion size={14} />{exam.questions.length} questions</span><span><BarChart3 size={14} />{exam.maximumMarks} marks</span><span><Clock3 size={14} />Until {new Date(exam.end).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span></div></div><Link className="button button-secondary" to={`/exam/${exam.id}/lobby`}>View details <ArrowRight size={15} /></Link></article>; }
+function ExamRow({ exam }: { exam: Exam }) {
+  const resultAvailable = exam.resultPublished && (exam.attemptStatus === 'SUBMITTED' || exam.attemptStatus === 'EXPIRED');
+  return <article className="exam-row card"><div className="exam-row-icon"><BookOpen size={19} /></div><div className="exam-row-main"><div className="exam-row-title"><h3>{exam.title}</h3><Badge tone={exam.status === 'AVAILABLE' ? 'green' : exam.status === 'COMPLETED' ? 'slate' : 'blue'}>{exam.status.replace('_', ' ')}</Badge></div><p className="muted">{exam.subject} · {new Date(exam.start).toLocaleDateString()} · {exam.durationMinutes} min</p><div className="row-meta"><span><FileQuestion size={14} />{exam.questions.length} questions</span><span><BarChart3 size={14} />{exam.maximumMarks} marks</span><span><Clock3 size={14} />Until {new Date(exam.end).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span></div></div><Link className="button button-secondary" to={resultAvailable ? `/results/${exam.id}` : `/exam/${exam.id}/lobby`}>{resultAvailable ? 'View result' : 'View details'} <ArrowRight size={15} /></Link></article>;
+}
 
 function Lobby() {
   const navigate = useNavigate();
@@ -142,9 +145,25 @@ function TeacherDetail() {
 function Results() {
   const { examId } = useParams();
   const [result, setResult] = useState<Awaited<ReturnType<typeof api.getResult>> | null>(null);
+  const [publishedExams, setPublishedExams] = useState<Exam[] | null>(null);
   const [error, setError] = useState('');
-  useEffect(() => { if (examId) api.getResult(examId).then(setResult).catch((reason) => setError(reason instanceof ApiError ? reason.message : 'Unable to load the result.')); }, [examId]);
+  useEffect(() => {
+    setError('');
+    if (examId) {
+      setPublishedExams(null);
+      api.getResult(examId).then(setResult).catch((reason) => setError(reason instanceof ApiError ? reason.message : 'Unable to load the result.'));
+      return;
+    }
+    setResult(null);
+    api.listExams()
+      .then((exams) => setPublishedExams(exams.filter((exam) => exam.resultPublished && (exam.attemptStatus === 'SUBMITTED' || exam.attemptStatus === 'EXPIRED'))))
+      .catch((reason) => setError(reason instanceof ApiError ? reason.message : 'Unable to load published results.'));
+  }, [examId]);
   if (error) return <ErrorState error={error} />;
+  if (!examId) {
+    if (!publishedExams) return <LoadingState />;
+    return <><PageHeader eyebrow="Candidate workspace" title="Results" description="Published results from your completed examinations." /><div className="exam-list">{publishedExams.length === 0 ? <div className="empty-state card"><BarChart3 size={27} /><h2>No published results</h2><p className="muted">Your instructor has not published a result for a completed examination yet.</p></div> : publishedExams.map((exam) => <article className="exam-row card" key={exam.id}><div className="exam-row-icon"><BarChart3 size={19} /></div><div className="exam-row-main"><h3>{exam.title}</h3><p className="muted">{exam.subject} · {exam.questions.length} questions · {exam.maximumMarks} marks</p></div><Link className="button button-secondary" to={`/results/${exam.id}`}>View result <ArrowRight size={15} /></Link></article>)}</div></>;
+  }
   if (!result) return <LoadingState />;
   return <><PageHeader eyebrow="Candidate workspace" title="Examination result" description="Published result generated from your submitted answers." /><section className="result-hero card"><div><span className="eyebrow">Total score</span><strong>{result.totalMarks}<small> / {result.maximumMarks}</small></strong><span className="muted">Submitted {new Date(result.submittedAt).toLocaleString()}</span></div><div className="score-ring">{result.percentage}%</div></section><section className="result-detail card"><div className="stats-row"><Stat label="Correct" value={result.correct} icon={CheckCircle2} tone="green" /><Stat label="Incorrect" value={result.incorrect} icon={X} tone="red" /><Stat label="Unattempted" value={result.unattempted} icon={Clock3} tone="blue" /></div><Link className="button button-secondary" to="/dashboard">Return to dashboard</Link></section></>;
 }
