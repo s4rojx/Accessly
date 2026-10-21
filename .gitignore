@@ -8,6 +8,9 @@
 **/.vite/
 **/*.tsbuildinfo
 
+# Documentation and project specs
+docs/
+
 # Local configuration and secrets
 .env
 .env.*
