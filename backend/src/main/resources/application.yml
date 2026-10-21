@@ -1,0 +1,36 @@
+spring:
+  application:
+    name: assessly-backend
+  datasource:
+    url: ${ASSESSLY_DATABASE_URL:jdbc:postgresql://localhost:5432/assessly}
+    username: ${ASSESSLY_DATABASE_USERNAME:assessly}
+    password: ${ASSESSLY_DATABASE_PASSWORD:assessly-local-only}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+
+server:
+  error:
+    include-message: never
+    include-stacktrace: never
+
+assessly:
+  frontend-origin: ${ASSESSLY_FRONTEND_ORIGIN:http://localhost:5173}
+  jwt:
+    private-key-base64: ${ASSESSLY_JWT_PRIVATE_KEY_BASE64}
+    public-key-base64: ${ASSESSLY_JWT_PUBLIC_KEY_BASE64}
+    access-token-ttl: ${ASSESSLY_ACCESS_TOKEN_TTL:PT15M}
+    refresh-token-ttl: ${ASSESSLY_REFRESH_TOKEN_TTL:P30D}
+    refresh-cookie-name: ${ASSESSLY_REFRESH_COOKIE_NAME:assessly_refresh}
+    refresh-cookie-secure: ${ASSESSLY_REFRESH_COOKIE_SECURE:false}

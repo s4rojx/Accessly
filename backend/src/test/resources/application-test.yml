@@ -1,0 +1,11 @@
+spring:
+  flyway:
+    clean-disabled: false
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+assessly:
+  frontend-origin: http://localhost:5173
+  jwt:
+    refresh-cookie-secure: false
