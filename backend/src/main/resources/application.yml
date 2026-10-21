@@ -1,6 +1,16 @@
 spring:
   application:
     name: assessly-backend
+  data:
+    redis:
+      host: ${ASSESSLY_REDIS_HOST:localhost}
+      port: ${ASSESSLY_REDIS_PORT:6379}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
   datasource:
     url: ${ASSESSLY_DATABASE_URL:jdbc:postgresql://localhost:5432/assessly}
     username: ${ASSESSLY_DATABASE_USERNAME:assessly}
@@ -27,6 +37,11 @@ server:
 
 assessly:
   frontend-origin: ${ASSESSLY_FRONTEND_ORIGIN:http://localhost:5173}
+  redis:
+    prewarm-minutes-before: ${ASSESSLY_REDIS_PREWARM_MINUTES:15}
+    sync-interval-ms: ${ASSESSLY_REDIS_SYNC_INTERVAL_MS:30000}
+    timer-reaper-interval-ms: ${ASSESSLY_REDIS_TIMER_REAPER_INTERVAL_MS:1000}
+    timer-grace-ms: ${ASSESSLY_REDIS_TIMER_GRACE_MS:5000}
   jwt:
     private-key-base64: ${ASSESSLY_JWT_PRIVATE_KEY_BASE64}
     public-key-base64: ${ASSESSLY_JWT_PUBLIC_KEY_BASE64}

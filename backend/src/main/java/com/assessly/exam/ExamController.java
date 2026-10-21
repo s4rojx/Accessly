@@ -1,5 +1,6 @@
 package com.assessly.exam;
 
+import com.assessly.infrastructure.redis.ExamPreWarmerService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -21,8 +22,12 @@ import java.util.UUID;
 @RequestMapping("/api/v1")
 public class ExamController {
     private final ExamService service;
+    private final ExamPreWarmerService preWarmer;
 
-    public ExamController(ExamService service) { this.service = service; }
+    public ExamController(ExamService service, ExamPreWarmerService preWarmer) {
+        this.service = service;
+        this.preWarmer = preWarmer;
+    }
 
     @GetMapping("/admin/exams")
     @PreAuthorize("hasRole('ADMIN')")
@@ -44,6 +49,14 @@ public class ExamController {
     @PostMapping("/admin/exams/{examId}/publish")
     @PreAuthorize("hasRole('ADMIN')")
     public ExamDtos.AdminResponse publish(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID examId) { return service.publish(userId(jwt), examId); }
+
+    /** Redis Phase 4: Pre-warms exam question cache. Safe to call multiple times (idempotent). */
+    @PostMapping("/admin/exams/{examId}/prewarm")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasRole('ADMIN')")
+    public void prewarm(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID examId) {
+        preWarmer.prewarmExam(examId);
+    }
 
     @GetMapping("/admin/exams/{examId}/roster")
     @PreAuthorize("hasRole('ADMIN')")

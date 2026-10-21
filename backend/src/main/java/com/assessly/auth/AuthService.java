@@ -1,5 +1,6 @@
 package com.assessly.auth;
 
+import com.assessly.infrastructure.redis.SessionLockService;
 import com.assessly.shared.ApiException;
 import com.assessly.user.UserEntity;
 import com.assessly.user.UserRepository;
@@ -31,17 +32,20 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final JwtProperties jwtProperties;
+    private final SessionLockService sessionLock;
     private final SecureRandom secureRandom = new SecureRandom();
     private final Clock clock = Clock.systemUTC();
 
     public AuthService(UserRepository users, RefreshTokenRepository refreshTokens, PasswordEncoder passwordEncoder,
-                       AuthenticationManager authenticationManager, JwtService jwtService, JwtProperties jwtProperties) {
+                       AuthenticationManager authenticationManager, JwtService jwtService, JwtProperties jwtProperties,
+                       SessionLockService sessionLock) {
         this.users = users;
         this.refreshTokens = refreshTokens;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
         this.jwtProperties = jwtProperties;
+        this.sessionLock = sessionLock;
     }
 
     @Transactional
@@ -95,6 +99,8 @@ public class AuthService {
                 token.revoke(clock.instant());
                 refreshTokens.save(token);
             }
+            // Phase 4: release single-session lock so the candidate can start a new session
+            sessionLock.forceReleaseSession(token.getUser().getId());
         });
     }
 
