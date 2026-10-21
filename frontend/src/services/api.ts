@@ -1,4 +1,4 @@
-import type { Attempt, AttemptAnswer, Exam, Result, User, Question } from '../types';
+import type { Attempt, AttemptAction, AttemptAnswer, Exam, Result, ResultPublication, User, Question } from '../types';
 import { getCurrentUser, setCurrentUser } from './session';
 
 export interface QuestionInput {
@@ -40,10 +40,10 @@ export interface AssesslyApi {
   publishExam(id: string): Promise<Exam>;
   replaceRoster(id: string, candidateIds: string[]): Promise<void>;
   startAttempt(examId: string): Promise<Attempt>;
-  sendAttemptAction(examId: string, answer: AttemptAnswer): Promise<AttemptAnswer>;
+  sendAttemptAction(examId: string, action: AttemptAction): Promise<AttemptAnswer>;
   submitAttempt(examId: string): Promise<Attempt['submissionReceipt']>;
   getResult(examId: string): Promise<Result>;
-  publishResults(examId: string): Promise<Result>;
+  publishResults(examId: string): Promise<ResultPublication>;
 }
 
 type BackendOption = { index: number; text: string };
@@ -56,6 +56,24 @@ type BackendExam = {
   durationMinutes: number; maximumMarks: number; questions: BackendQuestion[]; status: string;
   shuffleQuestions: boolean; shuffleOptions: boolean; enrolled: number; resultPublished?: boolean; attemptStatus?: Exam['attemptStatus'];
 };
+type BackendAttemptQuestion = {
+  id: string; type: Question['type']; category: string; difficulty: Question['difficulty']; prompt: string;
+  options: BackendOption[]; state: AttemptAnswer['state']; selectedOptionIndices: number[]; clientSeq: number;
+};
+type BackendAttempt = {
+  id: string; examId: string; serverTime: string; effectiveEndTime: string; status: Attempt['status'];
+  questions: BackendAttemptQuestion[];
+};
+type BackendActionResponse = {
+  attemptId: string; questionId: string; serverTime: string; effectiveEndTime: string;
+  action: AttemptAction['action']; state: AttemptAnswer['state']; selectedOptionIndices: number[]; clientSeq: number;
+};
+type BackendSubmissionReceipt = { submissionId: string; acceptedAt: string; status: 'SUBMITTED' | 'EXPIRED' };
+type BackendResult = {
+  id: string; examId: string; submittedAt: string; totalMarks: number; maximumMarks: number; percentage: number;
+  correct: number; incorrect: number; unattempted: number; timeTakenMinutes: number; published: boolean;
+};
+type BackendResultPublication = { examId: string; publishedCount: number; publishedAt: string };
 type BackendAuth = { accessToken: string; tokenType: string; expiresInSeconds: number; user: User };
 type BackendError = { code?: string; message?: string };
 
@@ -133,11 +151,17 @@ export class HttpApiAdapter implements AssesslyApi {
   async publishExam(id: string) { return mapExam(await this.request<BackendExam>(`/admin/exams/${id}/publish`, { method: 'POST' })); }
   async replaceRoster(id: string, candidateIds: string[]) { await this.request(`/admin/exams/${id}/roster`, { method: 'PUT', body: JSON.stringify({ candidateIds }) }); }
 
-  startAttempt(examId: string) { return this.request<Attempt>(`/student/exams/${examId}/start`, { method: 'POST' }); }
-  sendAttemptAction(examId: string, answer: AttemptAnswer) { return this.request<AttemptAnswer>(`/student/exams/${examId}/action`, { method: 'POST', body: JSON.stringify(answer) }); }
-  submitAttempt(examId: string) { return this.request<Attempt['submissionReceipt']>(`/student/exams/${examId}/submit`, { method: 'POST' }); }
-  getResult(examId: string) { return this.request<Result>(`/student/exams/${examId}/result`); }
-  publishResults(examId: string) { return this.request<Result>(`/admin/exams/${examId}/publish-results`, { method: 'POST' }); }
+  async startAttempt(examId: string) { return mapAttempt(await this.request<BackendAttempt>(`/student/exams/${examId}/start`, { method: 'POST' })); }
+  async sendAttemptAction(examId: string, action: AttemptAction) {
+    const response = await this.request<BackendActionResponse>(`/student/exams/${examId}/action`, {
+      method: 'POST',
+      body: JSON.stringify({ action: action.action, questionId: action.questionId, displayedOptionIndices: action.selectedOptionIds.map(optionIndex), clientSeq: action.clientSeq }),
+    });
+    return mapActionResponse(response);
+  }
+  async submitAttempt(examId: string) { return this.request<BackendSubmissionReceipt>(`/student/exams/${examId}/submit`, { method: 'POST' }); }
+  async getResult(examId: string) { return mapResult(await this.request<BackendResult>(`/student/exams/${examId}/result`)); }
+  async publishResults(examId: string) { return this.request<BackendResultPublication>(`/admin/exams/${examId}/publish-results`, { method: 'POST' }); }
 }
 
 export const api: AssesslyApi = new HttpApiAdapter();
@@ -155,6 +179,45 @@ export function mapBackendQuestion(question: BackendQuestion): Question {
     positiveMarks: question.positiveMarks,
     negativeMarks: question.negativeMarks,
   };
+}
+
+function mapAttempt(attempt: BackendAttempt): Attempt {
+  const questions = attempt.questions.map((question) => mapBackendQuestion(question));
+  const answers = Object.fromEntries(attempt.questions.map((question) => [question.id, {
+    questionId: question.id,
+    selectedOptionIds: question.selectedOptionIndices.map((index) => `${question.id}-option-${index}`),
+    state: question.state,
+    clientSeq: question.clientSeq,
+  } satisfies AttemptAnswer]));
+  return {
+    id: attempt.id,
+    examId: attempt.examId,
+    serverTimeEpochMs: Date.parse(attempt.serverTime),
+    effectiveEndEpochMs: Date.parse(attempt.effectiveEndTime),
+    status: attempt.status,
+    questions,
+    answers,
+    submitted: attempt.status !== 'IN_PROGRESS',
+  };
+}
+
+function mapActionResponse(response: BackendActionResponse): AttemptAnswer {
+  return {
+    questionId: response.questionId,
+    selectedOptionIds: response.selectedOptionIndices.map((index) => `${response.questionId}-option-${index}`),
+    state: response.state,
+    clientSeq: response.clientSeq,
+  };
+}
+
+function mapResult(result: BackendResult): Result {
+  return { ...result };
+}
+
+function optionIndex(optionId: string): number {
+  const marker = '-option-';
+  const index = Number(optionId.slice(optionId.lastIndexOf(marker) + marker.length));
+  return Number.isInteger(index) && index >= 0 ? index : -1;
 }
 
 function mapExam(exam: BackendExam): Exam {
