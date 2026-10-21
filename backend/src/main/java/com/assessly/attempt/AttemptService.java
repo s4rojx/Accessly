@@ -175,10 +175,8 @@ public class AttemptService {
     }
 
     private AttemptEntity lockedAttempt(UUID candidateId, UUID examId) {
-        AttemptEntity attempt = attempts.findByExamIdAndCandidateId(examId, candidateId)
+        return attempts.findByExamIdAndCandidateIdForUpdate(examId, candidateId)
                 .orElseThrow(() -> notFound("ATTEMPT_NOT_STARTED", "No attempt has been started"));
-        return attempts.findByIdForUpdate(attempt.getId())
-                .orElseThrow(() -> notFound("ATTEMPT_NOT_FOUND", "Attempt not found"));
     }
 
     private AttemptDtos.AttemptResponse toResponse(AttemptEntity attempt) {

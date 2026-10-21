@@ -1,8 +1,6 @@
 package com.assessly.attempt;
 
-import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -12,7 +10,7 @@ import java.util.UUID;
 public interface AttemptRepository extends JpaRepository<AttemptEntity, UUID> {
     Optional<AttemptEntity> findByExamIdAndCandidateId(UUID examId, UUID candidateId);
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select attempt from AttemptEntity attempt where attempt.id = :id")
-    Optional<AttemptEntity> findByIdForUpdate(@Param("id") UUID id);
+    @Query(value = "select * from attempts where exam_id = :examId and candidate_id = :candidateId for update", nativeQuery = true)
+    Optional<AttemptEntity> findByExamIdAndCandidateIdForUpdate(@Param("examId") UUID examId,
+                                                                 @Param("candidateId") UUID candidateId);
 }

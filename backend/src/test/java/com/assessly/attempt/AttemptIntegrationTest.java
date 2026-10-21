@@ -12,6 +12,13 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -22,6 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AttemptIntegrationTest extends AbstractIntegrationTest {
     @Autowired MockMvc mockMvc;
     @Autowired AuthService authService;
+    @Autowired AttemptService attemptService;
     @Autowired UserRepository users;
 
     @Test
@@ -95,6 +103,35 @@ class AttemptIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("OPTION_INVALID"));
     }
 
+    @Test
+    void concurrentSubmissionsProduceOneReceipt() throws Exception {
+        Fixture fixture = fixture("attempt-concurrent");
+        mockMvc.perform(post("/api/v1/student/exams/" + fixture.examId() + "/start")
+                        .header("Authorization", "Bearer " + fixture.candidateToken()))
+                .andExpect(status().isOk());
+
+        CyclicBarrier barrier = new CyclicBarrier(2);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<AttemptDtos.SubmissionReceipt> first = executor.submit(() -> {
+                barrier.await(10, TimeUnit.SECONDS);
+                return attemptService.submit(fixture.candidateId(), java.util.UUID.fromString(fixture.examId()));
+            });
+            Future<AttemptDtos.SubmissionReceipt> second = executor.submit(() -> {
+                barrier.await(10, TimeUnit.SECONDS);
+                return attemptService.submit(fixture.candidateId(), java.util.UUID.fromString(fixture.examId()));
+            });
+
+            AttemptDtos.SubmissionReceipt firstReceipt = first.get(20, TimeUnit.SECONDS);
+            AttemptDtos.SubmissionReceipt secondReceipt = second.get(20, TimeUnit.SECONDS);
+            assertThat(firstReceipt.submissionId()).isEqualTo(secondReceipt.submissionId());
+            assertThat(firstReceipt.status()).isEqualTo("SUBMITTED");
+            assertThat(secondReceipt.status()).isEqualTo("SUBMITTED");
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
     private org.springframework.test.web.servlet.ResultActions action(Fixture fixture, String questionId, String action,
                                                                         String selected, long sequence) throws Exception {
         return mockMvc.perform(post("/api/v1/student/exams/" + fixture.examId() + "/action")
@@ -127,8 +164,8 @@ class AttemptIntegrationTest extends AbstractIntegrationTest {
         mockMvc.perform(post("/api/v1/admin/exams/" + examId + "/publish").header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk());
         String candidateToken = authService.login(new LoginRequest("candidate-" + suffix + "@example.com", "candidate-password-123")).response().accessToken();
-        return new Fixture(adminToken, candidateToken, examId);
+        return new Fixture(adminToken, candidateToken, examId, candidate.id());
     }
 
-    private record Fixture(String adminToken, String candidateToken, String examId) { }
+    private record Fixture(String adminToken, String candidateToken, String examId, java.util.UUID candidateId) { }
 }
