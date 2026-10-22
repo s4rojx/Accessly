@@ -25,6 +25,11 @@ export interface ExamInput {
 }
 
 export interface AssesslyApi {
+  restoreSession(): Promise<User | null>;
+  getProfile(): Promise<User>;
+  updateProfile(input: { fullName: string; rollNumber: string }): Promise<User>;
+  uploadAvatar(file: File): Promise<User>;
+  removeAvatar(): Promise<User>;
   login(email: string, password: string): Promise<User>;
   signup(input: { fullName: string; email: string; rollNumber: string; password: string }): Promise<User>;
   logout(): Promise<void>;
@@ -96,7 +101,7 @@ export class HttpApiAdapter implements AssesslyApi {
     const timeout = window.setTimeout(() => controller.abort(), 10_000);
     const headers = new Headers(init.headers);
     headers.set('Accept', 'application/json');
-    if (init.body) headers.set('Content-Type', 'application/json');
+    if (init.body && !(init.body instanceof FormData)) headers.set('Content-Type', 'application/json');
     if (this.accessToken) headers.set('Authorization', `Bearer ${this.accessToken}`);
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && this.csrfToken) headers.set('X-XSRF-TOKEN', this.csrfToken);
     let response: Response;
@@ -164,6 +169,20 @@ export class HttpApiAdapter implements AssesslyApi {
     return this.refreshing;
   }
 
+  async restoreSession() {
+    try {
+      await this.refresh();
+      return getCurrentUser();
+    } catch (error) {
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+        this.accessToken = null;
+        setCurrentUser(null);
+        return null;
+      }
+      throw error;
+    }
+  }
+
   async login(email: string, password: string) {
     const auth = await this.request<BackendAuth>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }, false);
     this.accessToken = auth.accessToken;
@@ -178,6 +197,32 @@ export class HttpApiAdapter implements AssesslyApi {
   async logout() {
     try { await this.request<void>('/auth/logout', { method: 'POST' }, false); }
     finally { this.accessToken = null; setCurrentUser(null); }
+  }
+
+  async getProfile() {
+    const user = await this.request<User>('/profile');
+    setCurrentUser(user);
+    return user;
+  }
+
+  async updateProfile(input: { fullName: string; rollNumber: string }) {
+    const user = await this.request<User>('/profile', { method: 'PATCH', body: JSON.stringify(input) });
+    setCurrentUser(user);
+    return user;
+  }
+
+  async uploadAvatar(file: File) {
+    const body = new FormData();
+    body.append('file', file);
+    const user = await this.request<User>('/profile/avatar', { method: 'POST', body });
+    setCurrentUser(user);
+    return user;
+  }
+
+  async removeAvatar() {
+    const user = await this.request<User>('/profile/avatar', { method: 'DELETE' });
+    setCurrentUser(user);
+    return user;
   }
 
   async listExams() { return (await this.request<BackendExam[]>('/student/exams')).map(mapExam); }

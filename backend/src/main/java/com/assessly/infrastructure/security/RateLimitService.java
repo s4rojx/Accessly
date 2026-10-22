@@ -34,6 +34,10 @@ public class RateLimitService {
         check("auth:refresh:" + safe(remoteAddress), properties.getRefreshLimit(), properties.getRefreshWindowSeconds());
     }
 
+    public void checkAvatarUpload(String userId) {
+        check("profile:avatar:" + safe(userId), properties.getAvatarUploadLimit(), properties.getAvatarUploadWindowSeconds());
+    }
+
     public void checkCandidate(String userId, String examId, CandidateOperation operation) {
         int limit;
         long window;

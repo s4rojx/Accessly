@@ -40,6 +40,12 @@ public class UserEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "avatar_url", columnDefinition = "TEXT")
+    private String avatarUrl;
+
+    @Column(name = "avatar_public_id", length = 255)
+    private String avatarPublicId;
+
     protected UserEntity() {}
 
     private UserEntity(UUID id, String email, String fullName, String rollNumber, String passwordHash, AuthRole role) {
@@ -71,4 +77,18 @@ public class UserEntity {
     public boolean isActive() { return active; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+    public String getAvatarUrl() { return avatarUrl; }
+    public String getAvatarPublicId() { return avatarPublicId; }
+
+    public void updateProfile(String fullName, String rollNumber) {
+        this.fullName = fullName;
+        this.rollNumber = rollNumber;
+        this.updatedAt = Instant.now();
+    }
+
+    public void setAvatar(String avatarUrl, String avatarPublicId) {
+        this.avatarUrl = avatarUrl;
+        this.avatarPublicId = avatarPublicId;
+        this.updatedAt = Instant.now();
+    }
 }

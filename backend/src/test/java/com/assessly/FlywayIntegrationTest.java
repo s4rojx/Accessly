@@ -10,7 +10,7 @@ class FlywayIntegrationTest extends AbstractIntegrationTest {
     @Autowired JdbcTemplate jdbcTemplate;
 
     @Test
-    void phaseTwoMigrationsCreateExpectedTables() {
+    void migrationsCreateExpectedSchema() {
         Integer users = jdbcTemplate.queryForObject("select count(*) from information_schema.tables where table_schema='public' and table_name='users'", Integer.class);
         Integer refreshTokens = jdbcTemplate.queryForObject("select count(*) from information_schema.tables where table_schema='public' and table_name='refresh_tokens'", Integer.class);
         Integer questions = jdbcTemplate.queryForObject("select count(*) from information_schema.tables where table_schema='public' and table_name='questions'", Integer.class);
@@ -32,6 +32,7 @@ class FlywayIntegrationTest extends AbstractIntegrationTest {
         assertThat(attemptQuestions).isEqualTo(1);
         assertThat(attemptAnswers).isEqualTo(1);
         assertThat(results).isEqualTo(1);
-        assertThat(flyway).isEqualTo(6);
+        assertThat(jdbcTemplate.queryForObject("select count(*) from information_schema.columns where table_schema='public' and table_name='users' and column_name in ('avatar_url', 'avatar_public_id')", Integer.class)).isEqualTo(2);
+        assertThat(flyway).isEqualTo(7);
     }
 }

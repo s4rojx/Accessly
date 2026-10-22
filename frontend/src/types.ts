@@ -3,7 +3,7 @@ export type QuestionType = 'MCQ_SINGLE' | 'MCQ_MULTI';
 export type HeatmapState = 'NOT_VISITED' | 'NOT_ANSWERED' | 'ANSWERED' | 'MARKED_FOR_REVIEW' | 'ANSWERED_AND_MARKED_FOR_REVIEW';
 export type ExamStatus = 'DRAFT' | 'UPCOMING' | 'AVAILABLE' | 'IN_PROGRESS' | 'COMPLETED' | 'RESULTS_PENDING' | 'PUBLISHED';
 
-export interface User { id: string; fullName: string; email: string; role: Role; rollNumber?: string; }
+export interface User { id: string; fullName: string; email: string; role: Role; rollNumber?: string; avatarUrl?: string | null; }
 export interface Option { id: string; label: string; text: string; }
 export interface Question { id: string; type: QuestionType; category: string; difficulty: 'EASY' | 'MEDIUM' | 'HARD'; prompt: string; options: Option[]; correctOptionIds?: string[]; positiveMarks?: number; negativeMarks?: number; }
 export interface Exam { id: string; title: string; subject: string; description: string; start: string; end: string; durationMinutes: number; maximumMarks: number; questions: Question[]; status: ExamStatus; attemptStatus?: 'NOT_STARTED' | 'IN_PROGRESS' | 'SUBMITTED' | 'EXPIRED'; shuffleQuestions: boolean; shuffleOptions: boolean; resultPublished: boolean; enrolled: number; }

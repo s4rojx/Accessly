@@ -44,4 +44,23 @@ describe('HTTP API boundary', () => {
     const loginInit = fetch.mock.calls[1]?.[1] as RequestInit;
     expect(new Headers(loginInit.headers).get('X-XSRF-TOKEN')).toBe('csrf-token');
   });
+
+  it('restores the authenticated user through the refresh-cookie flow', async () => {
+    const fetch = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>((url) => {
+      if (url.endsWith('/auth/csrf')) {
+        return Promise.resolve(new Response(JSON.stringify({ token: 'csrf-token' }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+      }
+      return Promise.resolve(new Response(JSON.stringify({
+        accessToken: 'restored-access-token', tokenType: 'Bearer', expiresInSeconds: 900,
+        user: { id: 'user-2', fullName: 'Restored Candidate', email: 'restored@example.com', role: 'ROLE_CANDIDATE' },
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    });
+    vi.stubGlobal('fetch', fetch);
+    const adapter = new HttpApiAdapter('http://localhost:8080/api/v1');
+
+    await expect(adapter.restoreSession()).resolves.toMatchObject({ id: 'user-2', email: 'restored@example.com' });
+    expect(fetch).toHaveBeenNthCalledWith(2, 'http://localhost:8080/api/v1/auth/refresh', expect.objectContaining({
+      method: 'POST', credentials: 'include',
+    }));
+  });
 });

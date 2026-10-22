@@ -57,6 +57,8 @@ assessly:
     signup-window-seconds: ${ASSESSLY_RATE_LIMIT_SIGNUP_WINDOW_SECONDS:900}
     refresh-limit: ${ASSESSLY_RATE_LIMIT_REFRESH_LIMIT:30}
     refresh-window-seconds: ${ASSESSLY_RATE_LIMIT_REFRESH_WINDOW_SECONDS:900}
+    avatar-upload-limit: ${ASSESSLY_RATE_LIMIT_AVATAR_UPLOAD_LIMIT:5}
+    avatar-upload-window-seconds: ${ASSESSLY_RATE_LIMIT_AVATAR_UPLOAD_WINDOW_SECONDS:900}
     candidate-start-limit: ${ASSESSLY_RATE_LIMIT_CANDIDATE_START_LIMIT:10}
     candidate-start-window-seconds: ${ASSESSLY_RATE_LIMIT_CANDIDATE_START_WINDOW_SECONDS:60}
     candidate-action-limit: ${ASSESSLY_RATE_LIMIT_CANDIDATE_ACTION_LIMIT:100}

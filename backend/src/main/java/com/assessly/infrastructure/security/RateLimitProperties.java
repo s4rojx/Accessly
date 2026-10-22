@@ -11,6 +11,8 @@ public class RateLimitProperties {
     private long signupWindowSeconds = 900;
     private int refreshLimit = 30;
     private long refreshWindowSeconds = 900;
+    private int avatarUploadLimit = 5;
+    private long avatarUploadWindowSeconds = 900;
     private int candidateStartLimit = 10;
     private long candidateStartWindowSeconds = 60;
     private int candidateActionLimit = 100;
@@ -32,6 +34,10 @@ public class RateLimitProperties {
     public void setRefreshLimit(int value) { refreshLimit = positive(value, 30); }
     public long getRefreshWindowSeconds() { return refreshWindowSeconds; }
     public void setRefreshWindowSeconds(long value) { refreshWindowSeconds = positive(value, 900); }
+    public int getAvatarUploadLimit() { return avatarUploadLimit; }
+    public void setAvatarUploadLimit(int value) { avatarUploadLimit = positive(value, 5); }
+    public long getAvatarUploadWindowSeconds() { return avatarUploadWindowSeconds; }
+    public void setAvatarUploadWindowSeconds(long value) { avatarUploadWindowSeconds = positive(value, 900); }
     public int getCandidateStartLimit() { return candidateStartLimit; }
     public void setCandidateStartLimit(int value) { candidateStartLimit = positive(value, 10); }
     public long getCandidateStartWindowSeconds() { return candidateStartWindowSeconds; }

@@ -1,7 +1,7 @@
-import { StrictMode, useEffect, useState, type ReactNode } from 'react';
+import { StrictMode, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Link, Navigate, Outlet, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, CalendarDays, Check, CheckCircle2, ChevronDown, Clock3, FileQuestion, HelpCircle, LayoutDashboard, LogOut, Menu, Moon, Plus, Save, Send, ShieldCheck, Sun, Users, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, CalendarDays, Check, CheckCircle2, ChevronDown, Clock3, FileQuestion, HelpCircle, LayoutDashboard, LogOut, Menu, Moon, Plus, Save, Send, Settings2, ShieldCheck, Sun, Trash2, Upload, UserRound, Users, X } from 'lucide-react';
 import { api, ApiError, getCurrentUser, type ExamInput } from './services/api';
 import type { Exam, Question, Role } from './types';
 import './styles.css';
@@ -22,15 +22,28 @@ function ThemeButton() { const [dark, toggle] = useTheme(); return <button class
 function AppShell({ role }: { role: Role }) {
   const user = getCurrentUser();
   const [open, setOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const nav = role === 'ROLE_ADMIN'
     ? [{ to: '/dashboard', label: 'Overview', icon: LayoutDashboard }, { to: '/teacher/exams', label: 'Examinations', icon: FileQuestion }, { to: '/teacher/exams/create', label: 'Create exam', icon: Plus }]
     : [{ to: '/dashboard', label: 'Overview', icon: LayoutDashboard }, { to: '/exams', label: 'My examinations', icon: BookOpen }, { to: '/results', label: 'Results', icon: BarChart3 }];
-  return <div className="app-frame"><aside className={open ? 'sidebar open' : 'sidebar'}><div className="sidebar-top"><Logo /><button className="icon-button mobile-only" onClick={() => setOpen(false)}><X size={18} /></button></div><nav>{nav.map(({ to, label, icon: Icon }) => <Link key={to} className={location.pathname === to ? 'nav-link active' : 'nav-link'} to={to} onClick={() => setOpen(false)}><Icon size={18} />{label}</Link>)}</nav><div className="sidebar-footer"><div className="mini-note"><ShieldCheck size={17} /><span>Assessment integrity<br /><small>Server-authoritative workflows</small></span></div><button className="nav-link" onClick={async () => { await api.logout(); navigate('/auth/login'); }}><LogOut size={18} />Sign out</button></div></aside><main className="main"><header className="topbar"><button className="icon-button mobile-only" onClick={() => setOpen(true)}><Menu size={19} /></button><div className="crumb">{role === 'ROLE_ADMIN' ? 'Teacher workspace' : 'Candidate workspace'}</div><div className="top-actions"><button className="icon-button" aria-label="Notifications"><Bell size={18} /></button><ThemeButton /><div className="user-menu"><div className="avatar">{user?.fullName.slice(0, 1) ?? 'A'}</div><span className="hide-mobile">{user?.fullName ?? 'Guest'}</span><ChevronDown size={15} /></div></div></header><div className="content"><Outlet /></div></main></div>;
+  const signOut = async () => { await api.logout(); navigate('/auth/login'); };
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (userMenuRef.current && event.target instanceof Node && !userMenuRef.current.contains(event.target)) setUserMenuOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setUserMenuOpen(false); };
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => { document.removeEventListener('mousedown', closeOnOutsideClick); document.removeEventListener('keydown', closeOnEscape); };
+  }, [userMenuOpen]);
+  return <div className="app-frame"><aside className={open ? 'sidebar open' : 'sidebar'}><div className="sidebar-top"><Logo /><button className="icon-button mobile-only" onClick={() => setOpen(false)}><X size={18} /></button></div><nav>{nav.map(({ to, label, icon: Icon }) => <Link key={to} className={location.pathname === to ? 'nav-link active' : 'nav-link'} to={to} onClick={() => setOpen(false)}><Icon size={18} />{label}</Link>)}</nav><div className="sidebar-footer"><div className="mini-note"><ShieldCheck size={17} /><span>Assessment integrity<br /><small>Server-authoritative workflows</small></span></div><button className="nav-link" onClick={() => void signOut()}><LogOut size={18} />Sign out</button></div></aside><main className="main"><header className="topbar"><button className="icon-button mobile-only" onClick={() => setOpen(true)}><Menu size={19} /></button><div className="crumb">{role === 'ROLE_ADMIN' ? 'Teacher workspace' : 'Candidate workspace'}</div><div className="top-actions"><button className="icon-button" aria-label="Notifications"><Bell size={18} /></button><ThemeButton /><div ref={userMenuRef} className="user-menu-wrap"><button type="button" className="user-menu" aria-expanded={userMenuOpen} aria-haspopup="menu" onClick={() => setUserMenuOpen((value) => !value)}><span className="avatar">{user?.avatarUrl ? <img src={user.avatarUrl} alt="" /> : user?.fullName.slice(0, 1) ?? 'A'}</span><span className="hide-mobile">{user?.fullName ?? 'Guest'}</span><ChevronDown size={15} /></button>{userMenuOpen && <div className="user-popover" role="menu"><Link className="user-popover-action" role="menuitem" to="/profile" onClick={() => setUserMenuOpen(false)}><UserRound size={15} />Profile</Link><Link className="user-popover-action" role="menuitem" to="/profile#settings" onClick={() => setUserMenuOpen(false)}><Settings2 size={15} />Account settings</Link><div className="user-popover-divider" /><button type="button" className="user-popover-action danger" role="menuitem" onClick={() => void signOut()}><LogOut size={15} />Sign out</button></div>}</div></div></header><div className="content"><Outlet /></div></main></div>;
 }
 
-function PublicShell() { return <div className="public-shell"><div className="public-brand"><Logo /><div className="public-brand-copy"><Badge tone="blue">Academic assessment platform</Badge><h1>Make every examination<br /><em>feel considered.</em></h1><p>Assessly gives serious academic teams a calm, reliable space to create, run, and understand assessments.</p><div className="brand-proof"><ShieldCheck size={18} /><span>Designed around transparent assessment state and server-authoritative timing.</span></div></div></div><div className="public-panel"><ThemeButton /><Outlet /></div></div>; }
+function PublicShell() { return <div className="public-shell"><div className="public-brand"><Logo /><div className="public-brand-copy"><div className="public-brand-kicker">ASSESSLY / ASSESSMENT OS</div><h1>Bring clarity<br /><em>to every assessment.</em></h1><p>Design focused examinations, keep every decision visible, and give candidates a calmer way to perform.</p></div><div className="public-brand-orbit" aria-hidden="true"><span /><span /><span /></div></div><div className="public-panel"><ThemeButton /><Outlet /></div></div>; }
 function Protected({ role }: { role?: Role }) { const user = getCurrentUser(); if (!user) return <Navigate to="/auth/login" replace />; if (role && user.role !== role) return <Navigate to="/unauthorized" replace />; return <AppShell role={user.role} />; }
 
 function Login() {
@@ -67,10 +80,18 @@ function Dashboard() {
   useEffect(() => { const load = async () => { try { setExams(user.role === 'ROLE_ADMIN' ? await api.listAdminExams() : await api.listExams()); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to load assessments.'); } }; void load(); }, [user.role]);
   if (error) return <ErrorState error={error} />;
   if (!exams) return <LoadingState />;
-  return <><PageHeader eyebrow={user.role === 'ROLE_ADMIN' ? 'Teacher workspace' : 'Candidate workspace'} title={user.role === 'ROLE_ADMIN' ? 'Examination overview' : `Welcome back, ${user.fullName.split(' ')[0]}.`} description="A live view of assessment records from the Assessly API." action={user.role === 'ROLE_ADMIN' ? <Link className="button button-primary" to="/teacher/exams/create"><Plus size={17} />Create examination</Link> : <Link className="button button-secondary" to="/exams">View examinations <ArrowRight size={16} /></Link>} /><div className="stats-row"><Stat label="Visible assessments" value={exams.length} icon={CalendarDays} /><Stat label="Published windows" value={exams.filter((exam) => exam.status !== 'DRAFT').length} icon={CheckCircle2} tone="green" /><Stat label="Enrolled candidates" value={exams.reduce((sum, exam) => sum + exam.enrolled, 0)} icon={Users} tone="blue" /></div><Calendar exams={exams} role={user.role} /></>;
+  return <><PageHeader eyebrow={user.role === 'ROLE_ADMIN' ? 'Teacher workspace' : 'Candidate workspace'} title={user.role === 'ROLE_ADMIN' ? 'Examination overview' : `Welcome back, ${user.fullName.split(' ')[0]}.`} description="A live view of assessment records from the Assessly API." action={user.role === 'ROLE_ADMIN' ? <Link className="button button-primary" to="/teacher/exams/create"><Plus size={17} />Create examination</Link> : <Link className="button button-secondary" to="/exams">View examinations <ArrowRight size={16} /></Link>} /><WorkspaceVisual exams={exams} role={user.role} /><div className="stats-row"><Stat label="Visible assessments" value={exams.length} icon={CalendarDays} /><Stat label="Published windows" value={exams.filter((exam) => exam.status !== 'DRAFT').length} icon={CheckCircle2} tone="green" /><Stat label="Enrolled candidates" value={exams.reduce((sum, exam) => sum + exam.enrolled, 0)} icon={Users} tone="blue" /></div><Calendar exams={exams} role={user.role} /></>;
 }
 
-function Stat({ label, value, icon: Icon, tone = 'blue' }: { label: string; value: ReactNode; icon: typeof Users; tone?: string }) { return <div className="stat-card"><span className={`stat-icon ${tone}`}><Icon size={18} /></span><span><small>{label}</small><strong>{value}</strong></span></div>; }
+function Stat({ label, value, icon: Icon, tone = 'blue' }: { label: string; value: ReactNode; icon: typeof Users; tone?: string }) { return <div className="stat-card"><span className={`stat-icon ${tone}`}><Icon size={18} /></span><span className="stat-copy"><small>{label}</small><strong>{value}</strong></span></div>; }
+
+function WorkspaceVisual({ exams, role }: { exams: Exam[]; role: Role }) {
+  const published = exams.filter((exam) => exam.status !== 'DRAFT').length;
+  const enrolled = exams.reduce((sum, exam) => sum + exam.enrolled, 0);
+  const nextExam = exams[0];
+  return <section className="workspace-visual card" aria-label="Assessment workspace summary"><div className="workspace-visual-copy"><div className="eyebrow">Assessment workspace</div><h2>See the work at a glance.</h2><p className="muted">{role === 'ROLE_ADMIN' ? 'A focused control surface for building and monitoring assessments.' : 'A focused view of your assigned assessment journey.'}</p><div className="workspace-status"><span className="status-mark"><ShieldCheck size={15} /></span><span>{nextExam ? `${nextExam.title} is in your workspace` : 'Your workspace is ready for its first assessment'}</span></div></div><div className="workspace-tiles"><div className="workspace-tile tile-blue"><CalendarDays size={20} /><strong>Schedule</strong><small>{exams.length ? `${exams.length} visible assessment${exams.length === 1 ? '' : 's'}` : 'No assessments yet'}</small></div><div className="workspace-tile tile-lilac"><FileQuestion size={20} /><strong>Question bank</strong><small>Build clear, focused questions</small></div><div className="workspace-tile tile-green"><Users size={20} /><strong>Participation</strong><small>{enrolled ? `${enrolled} enrolled candidate${enrolled === 1 ? '' : 's'}` : 'No candidates enrolled'}</small></div><div className="workspace-tile tile-amber"><BarChart3 size={20} /><strong>Insights</strong><small>{published ? `${published} published window${published === 1 ? '' : 's'}` : 'Results appear after publication'}</small></div></div></section>;
+}
+
 
 function Exams() {
   const [exams, setExams] = useState<Exam[] | null>(null);
@@ -167,8 +188,69 @@ function Results() {
   if (!result) return <LoadingState />;
   return <><PageHeader eyebrow="Candidate workspace" title="Examination result" description="Published result generated from your submitted answers." /><section className="result-hero card"><div><span className="eyebrow">Total score</span><strong>{result.totalMarks}<small> / {result.maximumMarks}</small></strong><span className="muted">Submitted {new Date(result.submittedAt).toLocaleString()}</span></div><div className="score-ring">{result.percentage}%</div></section><section className="result-detail card"><div className="stats-row"><Stat label="Correct" value={result.correct} icon={CheckCircle2} tone="green" /><Stat label="Incorrect" value={result.incorrect} icon={X} tone="red" /><Stat label="Unattempted" value={result.unattempted} icon={Clock3} tone="blue" /></div><Link className="button button-secondary" to="/dashboard">Return to dashboard</Link></section></>;
 }
+function Profile() {
+  const current = getCurrentUser();
+  const [user, setUser] = useState(current);
+  const [fullName, setFullName] = useState(current?.fullName ?? '');
+  const [rollNumber, setRollNumber] = useState(current?.rollNumber ?? '');
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    void api.getProfile().then((profile) => {
+      if (!mounted) return;
+      setUser(profile);
+      setFullName(profile.fullName);
+      setRollNumber(profile.rollNumber ?? '');
+    }).catch((reason) => {
+      if (mounted) setError(reason instanceof ApiError ? reason.message : 'Unable to load profile details.');
+    });
+    return () => { mounted = false; };
+  }, []);
+
+  const update = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setSaving(true); setMessage(''); setError('');
+    try { const updated = await api.updateProfile({ fullName, rollNumber }); setUser(updated); setMessage('Profile details saved.'); }
+    catch (reason) { setError(reason instanceof ApiError ? reason.message : 'Unable to save profile details.'); }
+    finally { setSaving(false); }
+  };
+  const upload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setUploading(true); setMessage(''); setError('');
+    try { setUser(await api.uploadAvatar(file)); setMessage('Profile picture updated.'); }
+    catch (reason) { setError(reason instanceof ApiError ? reason.message : 'Unable to upload profile picture.'); }
+    finally { setUploading(false); }
+  };
+  const remove = async () => {
+    setUploading(true); setMessage(''); setError('');
+    try { setUser(await api.removeAvatar()); setMessage('Profile picture removed.'); }
+    catch (reason) { setError(reason instanceof ApiError ? reason.message : 'Unable to remove profile picture.'); }
+    finally { setUploading(false); }
+  };
+  if (!user) return <Navigate to="/auth/login" replace />;
+  return <><PageHeader eyebrow="Account" title="Profile" description="Manage the details shown on your Assessly account." /><div className="profile-grid"><section className="card profile-card"><div className="profile-avatar-large">{user.avatarUrl ? <img src={user.avatarUrl} alt={`${user.fullName}'s profile`} /> : user.fullName.slice(0, 1)}</div><h2>{user.fullName}</h2><p className="muted">{user.email}</p><div className="profile-avatar-actions"><label className="button button-secondary"><Upload size={15} />{uploading ? 'Uploading…' : 'Upload picture'}<input className="visually-hidden" type="file" accept="image/jpeg,image/png,image/gif" onChange={upload} disabled={uploading} /></label>{user.avatarUrl && <Button variant="ghost" onClick={() => void remove()} disabled={uploading} icon={<Trash2 size={15} />}>Remove</Button>}</div><small className="muted">JPEG, PNG, or GIF up to 5 MB.</small></section><section className="card form-card" id="settings"><div className="section-heading"><div><div className="eyebrow">Account settings</div><h2>Personal details</h2></div><UserRound size={20} /></div><form className="stack" onSubmit={update}><label>Full name<input value={fullName} onChange={(event) => setFullName(event.target.value)} required maxLength={255} /></label><label>Email<input value={user.email} readOnly /></label>{user.role === 'ROLE_CANDIDATE' && <label>Roll number<input value={rollNumber} onChange={(event) => setRollNumber(event.target.value)} maxLength={64} /></label>}{message && <div className="alert success">{message}</div>}{error && <div className="alert error">{error}</div>}<Button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save changes'} <Check size={16} /></Button></form></section></div></>;
+}
 function Unauthorized() { return <div className="empty-state card"><ShieldCheck size={30} /><h1>Access restricted</h1><p className="muted">This workspace is not available for your role.</p><Link to="/dashboard" className="button button-primary">Return to dashboard</Link></div>; }
 
-function App() { return <Routes><Route element={<PublicShell />}><Route path="/" element={<Navigate to="/auth/login" replace />} /><Route path="/auth/login" element={<Login />} /><Route path="/auth/signup" element={<Signup />} /></Route><Route element={<Protected />}><Route path="/dashboard" element={<Dashboard />} /><Route path="/exams" element={<Exams />} /><Route path="/exam/:examId/lobby" element={<Lobby />} /><Route path="/exam/:examId/live" element={<LiveExamRoute />} /><Route path="/results" element={<Results />} /><Route path="/results/:examId" element={<Results />} /></Route><Route element={<Protected role="ROLE_ADMIN" />}><Route path="/teacher/exams" element={<TeacherExams />} /><Route path="/teacher/exams/create" element={<CreateExam />} /><Route path="/teacher/exams/:examId" element={<TeacherDetail />} /></Route><Route path="/unauthorized" element={<Unauthorized />} /><Route path="*" element={<Navigate to="/dashboard" replace />} /></Routes>; }
+function App() {
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    void api.restoreSession().catch(() => undefined).finally(() => {
+      if (mounted) setReady(true);
+    });
+    return () => { mounted = false; };
+  }, []);
+
+  if (!ready) return <LoadingState />;
+  return <Routes><Route element={<PublicShell />}><Route path="/" element={<Navigate to="/auth/login" replace />} /><Route path="/auth/login" element={<Login />} /><Route path="/auth/signup" element={<Signup />} /></Route><Route element={<Protected />}><Route path="/dashboard" element={<Dashboard />} /><Route path="/profile" element={<Profile />} /><Route path="/exams" element={<Exams />} /><Route path="/exam/:examId/lobby" element={<Lobby />} /><Route path="/exam/:examId/live" element={<LiveExamRoute />} /><Route path="/results" element={<Results />} /><Route path="/results/:examId" element={<Results />} /></Route><Route element={<Protected role="ROLE_ADMIN" />}><Route path="/teacher/exams" element={<TeacherExams />} /><Route path="/teacher/exams/create" element={<CreateExam />} /><Route path="/teacher/exams/:examId" element={<TeacherDetail />} /></Route><Route path="/unauthorized" element={<Unauthorized />} /><Route path="*" element={<Navigate to="/dashboard" replace />} /></Routes>;
+}
 
 createRoot(document.getElementById('root')!).render(<StrictMode><BrowserRouter><App /></BrowserRouter></StrictMode>);
