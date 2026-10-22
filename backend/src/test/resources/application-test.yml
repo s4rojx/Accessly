@@ -7,5 +7,7 @@ spring:
 
 assessly:
   frontend-origin: http://localhost:5173
+  rate-limit:
+    enabled: false
   jwt:
     refresh-cookie-secure: false

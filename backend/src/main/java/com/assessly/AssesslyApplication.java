@@ -1,13 +1,14 @@
 package com.assessly;
 
 import com.assessly.infrastructure.redis.RedisAttemptProperties;
+import com.assessly.infrastructure.security.RateLimitProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
-@EnableConfigurationProperties(RedisAttemptProperties.class)
+@EnableConfigurationProperties({RedisAttemptProperties.class, RateLimitProperties.class})
 @EnableScheduling
 public class AssesslyApplication {
     public static void main(String[] args) {

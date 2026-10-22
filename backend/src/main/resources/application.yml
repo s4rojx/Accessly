@@ -49,3 +49,17 @@ assessly:
     refresh-token-ttl: ${ASSESSLY_REFRESH_TOKEN_TTL:P30D}
     refresh-cookie-name: ${ASSESSLY_REFRESH_COOKIE_NAME:assessly_refresh}
     refresh-cookie-secure: ${ASSESSLY_REFRESH_COOKIE_SECURE:false}
+  rate-limit:
+    enabled: ${ASSESSLY_RATE_LIMIT_ENABLED:true}
+    login-limit: ${ASSESSLY_RATE_LIMIT_LOGIN_LIMIT:5}
+    login-window-seconds: ${ASSESSLY_RATE_LIMIT_LOGIN_WINDOW_SECONDS:900}
+    signup-limit: ${ASSESSLY_RATE_LIMIT_SIGNUP_LIMIT:5}
+    signup-window-seconds: ${ASSESSLY_RATE_LIMIT_SIGNUP_WINDOW_SECONDS:900}
+    refresh-limit: ${ASSESSLY_RATE_LIMIT_REFRESH_LIMIT:30}
+    refresh-window-seconds: ${ASSESSLY_RATE_LIMIT_REFRESH_WINDOW_SECONDS:900}
+    candidate-start-limit: ${ASSESSLY_RATE_LIMIT_CANDIDATE_START_LIMIT:10}
+    candidate-start-window-seconds: ${ASSESSLY_RATE_LIMIT_CANDIDATE_START_WINDOW_SECONDS:60}
+    candidate-action-limit: ${ASSESSLY_RATE_LIMIT_CANDIDATE_ACTION_LIMIT:100}
+    candidate-action-window-seconds: ${ASSESSLY_RATE_LIMIT_CANDIDATE_ACTION_WINDOW_SECONDS:60}
+    candidate-submit-limit: ${ASSESSLY_RATE_LIMIT_CANDIDATE_SUBMIT_LIMIT:5}
+    candidate-submit-window-seconds: ${ASSESSLY_RATE_LIMIT_CANDIDATE_SUBMIT_WINDOW_SECONDS:60}

@@ -10,6 +10,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import com.assessly.infrastructure.security.RateLimitExceededException;
 
 import java.time.Instant;
 import java.util.stream.Collectors;
@@ -18,7 +19,13 @@ import java.util.stream.Collectors;
 public final class GlobalExceptionHandler {
     @ExceptionHandler(ApiException.class)
     ResponseEntity<ErrorResponse> handleApi(ApiException exception, HttpServletRequest request) {
-        return response(exception.getStatus(), exception.getCode(), exception.getMessage(), request);
+        ResponseEntity<ErrorResponse> response = response(exception.getStatus(), exception.getCode(), exception.getMessage(), request);
+        if (exception instanceof RateLimitExceededException limited) {
+            return ResponseEntity.status(response.getStatusCode())
+                    .header("Retry-After", Long.toString(limited.getRetryAfterSeconds()))
+                    .body(response.getBody());
+        }
+        return response;
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

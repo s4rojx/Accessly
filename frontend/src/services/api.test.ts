@@ -23,18 +23,25 @@ describe('HTTP API boundary', () => {
   });
 
   it('sends credentials and does not send a client role during login', async () => {
-    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
-      accessToken: 'access-token', tokenType: 'Bearer', expiresInSeconds: 900,
-      user: { id: 'user-1', fullName: 'Candidate', email: 'candidate@example.com', role: 'ROLE_CANDIDATE' },
-    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    const fetch = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>((url) => {
+      if (url.endsWith('/auth/csrf')) {
+        return Promise.resolve(new Response(JSON.stringify({ token: 'csrf-token' }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+      }
+      return Promise.resolve(new Response(JSON.stringify({
+        accessToken: 'access-token', tokenType: 'Bearer', expiresInSeconds: 900,
+        user: { id: 'user-1', fullName: 'Candidate', email: 'candidate@example.com', role: 'ROLE_CANDIDATE' },
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    });
     vi.stubGlobal('fetch', fetch);
     const adapter = new HttpApiAdapter('http://localhost:8080/api/v1');
 
     await adapter.login('candidate@example.com', 'password');
 
-    expect(fetch).toHaveBeenCalledWith('http://localhost:8080/api/v1/auth/login', expect.objectContaining({
+    expect(fetch).toHaveBeenNthCalledWith(2, 'http://localhost:8080/api/v1/auth/login', expect.objectContaining({
       credentials: 'include',
       body: JSON.stringify({ email: 'candidate@example.com', password: 'password' }),
     }));
+    const loginInit = fetch.mock.calls[1]?.[1] as RequestInit;
+    expect(new Headers(loginInit.headers).get('X-XSRF-TOKEN')).toBe('csrf-token');
   });
 });

@@ -84,16 +84,21 @@ export class ApiError extends Error {
 export class HttpApiAdapter implements AssesslyApi {
   private accessToken: string | null = null;
   private refreshing: Promise<void> | null = null;
+  private csrfToken: string | null = null;
+  private csrfLoading: Promise<void> | null = null;
 
   constructor(private readonly baseUrl = import.meta.env.VITE_API_BASE_URL ?? '/api/v1') {}
 
   private async request<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
+    const method = (init.method ?? 'GET').toUpperCase();
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) await this.ensureCsrfToken();
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 10_000);
     const headers = new Headers(init.headers);
     headers.set('Accept', 'application/json');
     if (init.body) headers.set('Content-Type', 'application/json');
     if (this.accessToken) headers.set('Authorization', `Bearer ${this.accessToken}`);
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && this.csrfToken) headers.set('X-XSRF-TOKEN', this.csrfToken);
     let response: Response;
     try {
       response = await fetch(`${this.baseUrl}${path}`, { ...init, signal: controller.signal, credentials: 'include', headers });
@@ -112,6 +117,42 @@ export class HttpApiAdapter implements AssesslyApi {
     }
     if (response.status === 204) return undefined as T;
     return response.json() as Promise<T>;
+  }
+
+  private async ensureCsrfToken() {
+    const cookieToken = this.readCsrfCookie();
+    if (cookieToken) {
+      this.csrfToken = cookieToken;
+      return;
+    }
+    if (!this.csrfLoading) {
+      this.csrfLoading = (async () => {
+        const controller = new AbortController();
+        const timeout = window.setTimeout(() => controller.abort(), 10_000);
+        try {
+          const response = await fetch(`${this.baseUrl}/auth/csrf`, {
+            credentials: 'include', headers: { Accept: 'application/json' }, signal: controller.signal,
+          });
+          if (!response.ok) throw new ApiError(response.status, 'CSRF_INITIALIZATION_FAILED', 'Unable to initialize request protection');
+          const body = await response.json() as { token?: string };
+          this.csrfToken = this.readCsrfCookie() ?? body.token ?? null;
+          if (!this.csrfToken) throw new ApiError(0, 'CSRF_INITIALIZATION_FAILED', 'Unable to initialize request protection');
+        } catch (error) {
+          if (error instanceof ApiError) throw error;
+          if (error instanceof DOMException && error.name === 'AbortError') throw new ApiError(0, 'API_TIMEOUT', 'The API request timed out');
+          throw new ApiError(0, 'API_UNAVAILABLE', 'Unable to reach the API');
+        } finally {
+          window.clearTimeout(timeout);
+        }
+      })().finally(() => { this.csrfLoading = null; });
+    }
+    await this.csrfLoading;
+  }
+
+  private readCsrfCookie(): string | null {
+    if (typeof document === 'undefined') return null;
+    const token = document.cookie.split('; ').find((value) => value.startsWith('XSRF-TOKEN='))?.slice('XSRF-TOKEN='.length);
+    return token ? decodeURIComponent(token) : null;
   }
 
   private async refresh() {

@@ -34,4 +34,13 @@ public class RedisConfig {
         script.setResultType(List.class);
         return script;
     }
+
+    @Bean
+    @SuppressWarnings("rawtypes")
+    public DefaultRedisScript<List> rateLimitScript() {
+        DefaultRedisScript<List> script = new DefaultRedisScript<>();
+        script.setScriptSource(new ResourceScriptSource(new ClassPathResource("redis/rate_limit.lua")));
+        script.setResultType(List.class);
+        return script;
+    }
 }
