@@ -45,7 +45,16 @@ public class AuthController {
     @PostMapping("/login")
     ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
         rateLimitService.checkLogin(httpRequest.getRemoteAddr(), request.email());
-        AuthService.AuthTokens tokens = authService.login(request);
+        boolean adminPortal = "admin".equalsIgnoreCase(httpRequest.getHeader("X-Assessly-Portal"));
+        AuthService.AuthTokens tokens = authService.login(request, adminPortal);
+        return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, authService.refreshCookie(tokens.rawRefreshToken()).toString())
+                .body(tokens.response());
+    }
+
+    @PostMapping("/oauth2/google")
+    ResponseEntity<AuthResponse> google(@Valid @RequestBody GoogleLoginRequest request, HttpServletRequest httpRequest) {
+        rateLimitService.checkLogin(httpRequest.getRemoteAddr(), "google");
+        AuthService.AuthTokens tokens = authService.loginWithGoogle(request);
         return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, authService.refreshCookie(tokens.rawRefreshToken()).toString())
                 .body(tokens.response());
     }

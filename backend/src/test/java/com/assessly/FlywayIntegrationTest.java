@@ -33,6 +33,7 @@ class FlywayIntegrationTest extends AbstractIntegrationTest {
         assertThat(attemptAnswers).isEqualTo(1);
         assertThat(results).isEqualTo(1);
         assertThat(jdbcTemplate.queryForObject("select count(*) from information_schema.columns where table_schema='public' and table_name='users' and column_name in ('avatar_url', 'avatar_public_id')", Integer.class)).isEqualTo(2);
-        assertThat(flyway).isEqualTo(7);
+        assertThat(jdbcTemplate.queryForObject("select count(*) from information_schema.columns where table_schema='public' and table_name='users' and column_name in ('auth_provider', 'google_subject')", Integer.class)).isEqualTo(2);
+        assertThat(flyway).isEqualTo(8);
     }
 }

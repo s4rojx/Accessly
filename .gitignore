@@ -5,6 +5,7 @@
 **/dist/
 **/build/
 **/target/
+**/.m2/
 **/coverage/
 **/.vite/
 **/*.tsbuildinfo

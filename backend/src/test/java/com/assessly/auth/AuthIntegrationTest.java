@@ -80,6 +80,14 @@ class AuthIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void googleLoginFailsSafelyWhenProviderIsNotConfigured() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/oauth2/google").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"credential\":\"test-credential\"}"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("GOOGLE_AUTH_UNAVAILABLE"));
+    }
+
+    @Test
     void refreshRotatesAndReuseRevokesTheTokenFamily() throws Exception {
         signup("refresh@example.com", "CS-REFRESH");
         var login = mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
@@ -126,10 +134,22 @@ class AuthIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void bootstrapCreatesAdminAndRefusesOverwrite() {
+    void bootstrapCreatesAdminAndAdminPortalUsesDatabaseRole() throws Exception {
+        signup("portal-candidate@example.com", "CS-PORTAL");
+        mockMvc.perform(post("/api/v1/auth/login").header("X-Assessly-Portal", "admin")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"portal-candidate@example.com\",\"password\":\"candidate-password\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+
         authService.bootstrapAdmin("bootstrap@example.com", "Bootstrap Admin", "bootstrap-password");
         org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
                 "select count(*) from users where role='ROLE_ADMIN'", Integer.class)).isEqualTo(1);
+        mockMvc.perform(post("/api/v1/auth/login").header("X-Assessly-Portal", "admin")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"bootstrap@example.com\",\"password\":\"bootstrap-password\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.user.role").value("ROLE_ADMIN"));
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> authService.bootstrapAdmin(
                 "other-admin@example.com", "Other Admin", "other-admin-password"))
                 .isInstanceOf(IllegalStateException.class)

@@ -1,12 +1,25 @@
 import { StrictMode, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Link, Navigate, Outlet, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, CalendarDays, Check, CheckCircle2, ChevronDown, Clock3, FileQuestion, HelpCircle, LayoutDashboard, LogOut, Menu, Moon, Plus, Save, Send, Settings2, ShieldCheck, Sun, Trash2, Upload, UserRound, Users, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, CalendarDays, Check, CheckCircle2, ChevronDown, Clock3, FileQuestion, HelpCircle, LayoutDashboard, LogOut, Menu, Moon, PanelLeftClose, PanelLeftOpen, Plus, Save, Send, Settings2, ShieldCheck, Sun, Trash2, Upload, UserRound, Users, X } from 'lucide-react';
 import { api, ApiError, getCurrentUser, type ExamInput } from './services/api';
 import type { Exam, Question, Role } from './types';
 import './styles.css';
 import './refinement.css';
 import { LiveExamRoute } from './components/LiveExamRoute';
+
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (options: { client_id: string; callback: (response: { credential: string }) => void }) => void;
+          renderButton: (element: HTMLElement, options: { theme: string; size: string; width: number }) => void;
+        };
+      };
+    };
+  }
+}
 
 function useTheme() {
   const [dark, setDark] = useState(() => localStorage.getItem('assessly-theme') === 'dark');
@@ -22,6 +35,7 @@ function ThemeButton() { const [dark, toggle] = useTheme(); return <button class
 function AppShell({ role }: { role: Role }) {
   const user = getCurrentUser();
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('assessly-sidebar') === 'collapsed');
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -40,11 +54,50 @@ function AppShell({ role }: { role: Role }) {
     document.addEventListener('keydown', closeOnEscape);
     return () => { document.removeEventListener('mousedown', closeOnOutsideClick); document.removeEventListener('keydown', closeOnEscape); };
   }, [userMenuOpen]);
-  return <div className="app-frame"><aside className={open ? 'sidebar open' : 'sidebar'}><div className="sidebar-top"><Logo /><button className="icon-button mobile-only" onClick={() => setOpen(false)}><X size={18} /></button></div><nav>{nav.map(({ to, label, icon: Icon }) => <Link key={to} className={location.pathname === to ? 'nav-link active' : 'nav-link'} to={to} onClick={() => setOpen(false)}><Icon size={18} />{label}</Link>)}</nav><div className="sidebar-footer"><div className="mini-note"><ShieldCheck size={17} /><span>Assessment integrity<br /><small>Server-authoritative workflows</small></span></div><button className="nav-link" onClick={() => void signOut()}><LogOut size={18} />Sign out</button></div></aside><main className="main"><header className="topbar"><button className="icon-button mobile-only" onClick={() => setOpen(true)}><Menu size={19} /></button><div className="crumb">{role === 'ROLE_ADMIN' ? 'Teacher workspace' : 'Candidate workspace'}</div><div className="top-actions"><button className="icon-button" aria-label="Notifications"><Bell size={18} /></button><ThemeButton /><div ref={userMenuRef} className="user-menu-wrap"><button type="button" className="user-menu" aria-expanded={userMenuOpen} aria-haspopup="menu" onClick={() => setUserMenuOpen((value) => !value)}><span className="avatar">{user?.avatarUrl ? <img src={user.avatarUrl} alt="" /> : user?.fullName.slice(0, 1) ?? 'A'}</span><span className="hide-mobile">{user?.fullName ?? 'Guest'}</span><ChevronDown size={15} /></button>{userMenuOpen && <div className="user-popover" role="menu"><Link className="user-popover-action" role="menuitem" to="/profile" onClick={() => setUserMenuOpen(false)}><UserRound size={15} />Profile</Link><Link className="user-popover-action" role="menuitem" to="/profile#settings" onClick={() => setUserMenuOpen(false)}><Settings2 size={15} />Account settings</Link><div className="user-popover-divider" /><button type="button" className="user-popover-action danger" role="menuitem" onClick={() => void signOut()}><LogOut size={15} />Sign out</button></div>}</div></div></header><div className="content"><Outlet /></div></main></div>;
+  const toggleSidebar = () => setCollapsed((value) => { const next = !value; localStorage.setItem('assessly-sidebar', next ? 'collapsed' : 'expanded'); return next; });
+  return <div className="app-frame"><aside className={`sidebar${open ? ' open' : ''}${collapsed ? ' collapsed' : ''}`}><div className="sidebar-top"><Logo /><div className="sidebar-controls"><button type="button" className="icon-button sidebar-toggle" aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-expanded={!collapsed} onClick={toggleSidebar}>{collapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}</button><button type="button" className="icon-button mobile-only" aria-label="Close navigation" onClick={() => setOpen(false)}><X size={18} /></button></div></div><nav>{nav.map(({ to, label, icon: Icon }) => <Link key={to} title={label} className={location.pathname === to ? 'nav-link active' : 'nav-link'} to={to} onClick={() => setOpen(false)}><Icon size={18} /><span>{label}</span></Link>)}</nav><div className="sidebar-footer"><div className="mini-note"><ShieldCheck size={17} /><span>Assessment integrity<br /><small>Server-authoritative workflows</small></span></div><button type="button" className="nav-link" onClick={() => void signOut()}><LogOut size={18} /><span>Sign out</span></button></div></aside><main className="main"><header className="topbar"><button type="button" className="icon-button mobile-only" aria-label="Open navigation" onClick={() => setOpen(true)}><Menu size={19} /></button><div className="crumb workspace-title">{role === 'ROLE_ADMIN' ? 'Teacher workspace' : 'Candidate workspace'}</div><div className="top-actions"><button type="button" className="icon-button" aria-label="Notifications"><Bell size={18} /></button><ThemeButton /><div ref={userMenuRef} className="user-menu-wrap"><button type="button" className="user-menu" aria-expanded={userMenuOpen} aria-haspopup="menu" onClick={() => setUserMenuOpen((value) => !value)}><span className="avatar">{user?.avatarUrl ? <img src={user.avatarUrl} alt="" /> : user?.fullName.slice(0, 1) ?? 'A'}</span><span className="hide-mobile">{user?.fullName ?? 'Guest'}</span><ChevronDown size={15} /></button>{userMenuOpen && <div className="user-popover" role="menu"><Link className="user-popover-action" role="menuitem" to="/profile" onClick={() => setUserMenuOpen(false)}><UserRound size={15} />Profile</Link><Link className="user-popover-action" role="menuitem" to="/profile#settings" onClick={() => setUserMenuOpen(false)}><Settings2 size={15} />Account settings</Link><div className="user-popover-divider" /><button type="button" className="user-popover-action danger" role="menuitem" onClick={() => void signOut()}><LogOut size={15} />Sign out</button></div>}</div></div></header><div className="content"><Outlet /></div></main></div>;
 }
 
 function PublicShell() { return <div className="public-shell"><div className="public-brand"><Logo /><div className="public-brand-copy"><div className="public-brand-kicker">ASSESSLY / ASSESSMENT OS</div><h1>Bring clarity<br /><em>to every assessment.</em></h1><p>Design focused examinations, keep every decision visible, and give candidates a calmer way to perform.</p></div><div className="public-brand-orbit" aria-hidden="true"><span /><span /><span /></div></div><div className="public-panel"><ThemeButton /><Outlet /></div></div>; }
 function Protected({ role }: { role?: Role }) { const user = getCurrentUser(); if (!user) return <Navigate to="/auth/login" replace />; if (role && user.role !== role) return <Navigate to="/unauthorized" replace />; return <AppShell role={user.role} />; }
+
+function GoogleSignInButton({ onCredential }: { onCredential: (credential: string) => void }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const callbackRef = useRef(onCredential);
+  const [rendered, setRendered] = useState(false);
+  callbackRef.current = onCredential;
+  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
+
+  useEffect(() => {
+    if (!clientId) return;
+    const render = () => {
+      if (!containerRef.current || !window.google) return;
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: (response) => callbackRef.current(response.credential),
+      });
+      containerRef.current.replaceChildren();
+      window.google.accounts.id.renderButton(containerRef.current, { theme: 'outline', size: 'large', width: 360 });
+      setRendered(true);
+    };
+    if (window.google) {
+      render();
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.addEventListener('load', render);
+    document.head.appendChild(script);
+    return () => script.removeEventListener('load', render);
+  }, [clientId]);
+
+  if (!clientId) return <button type="button" className="google-signin-disabled" disabled>Google sign-in is not configured</button>;
+  return <div className="google-signin"><div ref={containerRef} />{!rendered && <span className="muted">Loading Google sign-in…</span>}</div>;
+}
+
+function AuthDivider() { return <div className="auth-divider"><span>or</span></div>; }
 
 function Login() {
   const navigate = useNavigate();
@@ -52,8 +105,10 @@ function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const submit = async (event: React.FormEvent) => { event.preventDefault(); setLoading(true); setError(''); try { await api.login(email, password); navigate('/dashboard'); } catch (reason) { setError(reason instanceof ApiError ? reason.message : 'Unable to sign in.'); } finally { setLoading(false); } };
-  return <div className="auth-card"><div className="eyebrow">Welcome back</div><h2>Sign in to Assessly</h2><p className="muted">Use the account provisioned by your administrator.</p><form onSubmit={submit} className="stack"><label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required /></label>{error && <div className="alert error">{error}</div>}<Button type="submit" disabled={loading}>{loading ? 'Signing in…' : 'Continue'} <ArrowRight size={17} /></Button></form><p className="auth-foot">New candidate? <Link to="/auth/signup">Create an account</Link></p></div>;
+  const googleLogin = async (credential: string) => { setGoogleLoading(true); setError(''); try { await api.loginWithGoogle(credential); navigate('/dashboard'); } catch (reason) { setError(reason instanceof ApiError ? reason.message : 'Unable to sign in with Google.'); } finally { setGoogleLoading(false); } };
+  return <div className="auth-card"><div className="eyebrow">Welcome back</div><h2>Sign in to Assessly</h2><p className="muted">Use the account provisioned by your administrator.</p><GoogleSignInButton onCredential={(credential) => void googleLogin(credential)} /><AuthDivider /><form onSubmit={submit} className="stack"><label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required /></label>{error && <div className="alert error">{error}</div>}<Button type="submit" disabled={loading || googleLoading}>{loading ? 'Signing in…' : 'Continue'} <ArrowRight size={17} /></Button></form><p className="auth-foot">New candidate? <Link to="/auth/signup">Create an account</Link></p><p className="auth-foot"><Link to="/admin/login">Administrator portal</Link></p></div>;
 }
 
 function Signup() {
@@ -61,8 +116,20 @@ function Signup() {
   const [values, setValues] = useState({ fullName: '', email: '', rollNumber: '', password: '' });
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const submit = async (event: React.FormEvent) => { event.preventDefault(); setError(''); try { await api.signup(values); setSaved(true); setTimeout(() => navigate('/auth/login'), 700); } catch (reason) { setError(reason instanceof ApiError ? reason.message : 'Unable to create the account.'); } };
-  return <div className="auth-card"><div className="eyebrow">Candidate registration</div><h2>Create your account</h2><p className="muted">Candidate access is granted to assessments through an administrator roster.</p><form onSubmit={submit} className="stack"><label>Full name<input required value={values.fullName} onChange={(event) => setValues({ ...values, fullName: event.target.value })} /></label><label>Email<input required type="email" value={values.email} onChange={(event) => setValues({ ...values, email: event.target.value })} /></label><label>Roll number<input required value={values.rollNumber} onChange={(event) => setValues({ ...values, rollNumber: event.target.value })} /></label><label>Password<input required minLength={8} type="password" value={values.password} onChange={(event) => setValues({ ...values, password: event.target.value })} /></label>{error && <div className="alert error">{error}</div>}{saved && <div className="alert success">Account created. Redirecting to sign in.</div>}<Button type="submit" disabled={saved}>Create candidate account <ArrowRight size={17} /></Button></form><p className="auth-foot">Already registered? <Link to="/auth/login">Sign in</Link></p></div>;
+  const googleSignup = async (credential: string) => { setGoogleLoading(true); setError(''); try { await api.loginWithGoogle(credential); navigate('/dashboard'); } catch (reason) { setError(reason instanceof ApiError ? reason.message : 'Unable to continue with Google.'); } finally { setGoogleLoading(false); } };
+  return <div className="auth-card"><div className="eyebrow">Candidate registration</div><h2>Create your account</h2><p className="muted">Candidate access is granted to assessments through an administrator roster.</p><GoogleSignInButton onCredential={(credential) => void googleSignup(credential)} /><AuthDivider /><form onSubmit={submit} className="stack"><label>Full name<input required value={values.fullName} onChange={(event) => setValues({ ...values, fullName: event.target.value })} /></label><label>Email<input required type="email" value={values.email} onChange={(event) => setValues({ ...values, email: event.target.value })} /></label><label>Roll number<input required value={values.rollNumber} onChange={(event) => setValues({ ...values, rollNumber: event.target.value })} /></label><label>Password<input required minLength={8} type="password" value={values.password} onChange={(event) => setValues({ ...values, password: event.target.value })} /></label>{error && <div className="alert error">{error}</div>}{saved && <div className="alert success">Account created. Redirecting to sign in.</div>}<Button type="submit" disabled={saved || googleLoading}>Create candidate account <ArrowRight size={17} /></Button></form><p className="auth-foot">Already registered? <Link to="/auth/login">Sign in</Link></p></div>;
+}
+
+function AdminLogin() {
+  const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const submit = async (event: React.FormEvent) => { event.preventDefault(); setLoading(true); setError(''); try { await api.login(email, password, 'admin'); navigate('/teacher/exams'); } catch (reason) { setError(reason instanceof ApiError ? reason.message : 'Unable to sign in.'); } finally { setLoading(false); } };
+  return <div className="auth-card admin-auth-card"><div className="eyebrow">Secure access</div><h2>Assessly Administrator Portal</h2><p className="muted">Sign in to manage assessments, question banks, and candidate rosters.</p><div className="alert info">Administrator accounts are securely provisioned via system bootstrap. Contact your platform administrator for access.</div><form onSubmit={submit} className="stack"><label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required /></label>{error && <div className="alert error">{error}</div>}<Button type="submit" disabled={loading}>{loading ? 'Signing in…' : 'Enter administrator workspace'} <ArrowRight size={17} /></Button></form><p className="auth-foot"><Link to="/auth/login">Return to candidate sign in</Link></p></div>;
 }
 
 function PageHeader({ eyebrow, title, description, action }: { eyebrow?: string; title: string; description?: string; action?: ReactNode }) { return <div className="page-header"><div>{eyebrow && <div className="eyebrow">{eyebrow}</div>}<h1>{title}</h1>{description && <p className="muted">{description}</p>}</div>{action}</div>; }
@@ -250,7 +317,7 @@ function App() {
   }, []);
 
   if (!ready) return <LoadingState />;
-  return <Routes><Route element={<PublicShell />}><Route path="/" element={<Navigate to="/auth/login" replace />} /><Route path="/auth/login" element={<Login />} /><Route path="/auth/signup" element={<Signup />} /></Route><Route element={<Protected />}><Route path="/dashboard" element={<Dashboard />} /><Route path="/profile" element={<Profile />} /><Route path="/exams" element={<Exams />} /><Route path="/exam/:examId/lobby" element={<Lobby />} /><Route path="/exam/:examId/live" element={<LiveExamRoute />} /><Route path="/results" element={<Results />} /><Route path="/results/:examId" element={<Results />} /></Route><Route element={<Protected role="ROLE_ADMIN" />}><Route path="/teacher/exams" element={<TeacherExams />} /><Route path="/teacher/exams/create" element={<CreateExam />} /><Route path="/teacher/exams/:examId" element={<TeacherDetail />} /></Route><Route path="/unauthorized" element={<Unauthorized />} /><Route path="*" element={<Navigate to="/dashboard" replace />} /></Routes>;
+  return <Routes><Route element={<PublicShell />}><Route path="/" element={<Navigate to="/auth/login" replace />} /><Route path="/auth/login" element={<Login />} /><Route path="/auth/signup" element={<Signup />} /><Route path="/admin/login" element={<AdminLogin />} /></Route><Route element={<Protected />}><Route path="/dashboard" element={<Dashboard />} /><Route path="/profile" element={<Profile />} /><Route path="/exams" element={<Exams />} /><Route path="/exam/:examId/lobby" element={<Lobby />} /><Route path="/exam/:examId/live" element={<LiveExamRoute />} /><Route path="/results" element={<Results />} /><Route path="/results/:examId" element={<Results />} /></Route><Route element={<Protected role="ROLE_ADMIN" />}><Route path="/teacher/exams" element={<TeacherExams />} /><Route path="/teacher/exams/create" element={<CreateExam />} /><Route path="/teacher/exams/:examId" element={<TeacherDetail />} /></Route><Route path="/unauthorized" element={<Unauthorized />} /><Route path="*" element={<Navigate to="/dashboard" replace />} /></Routes>;
 }
 
 createRoot(document.getElementById('root')!).render(<StrictMode><BrowserRouter><App /></BrowserRouter></StrictMode>);

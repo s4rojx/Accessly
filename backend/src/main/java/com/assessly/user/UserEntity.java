@@ -24,8 +24,15 @@ public class UserEntity {
     @Column(name = "roll_number", unique = true, length = 64)
     private String rollNumber;
 
-    @Column(name = "password_hash", nullable = false, length = 255)
+    @Column(name = "password_hash", length = 255)
     private String passwordHash;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "auth_provider", nullable = false, length = 32)
+    private AuthProvider authProvider;
+
+    @Column(name = "google_subject", unique = true, length = 255)
+    private String googleSubject;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
@@ -54,6 +61,7 @@ public class UserEntity {
         this.fullName = fullName;
         this.rollNumber = rollNumber;
         this.passwordHash = passwordHash;
+        this.authProvider = AuthProvider.LOCAL;
         this.role = role;
         this.active = true;
         this.createdAt = Instant.now();
@@ -68,11 +76,20 @@ public class UserEntity {
         return new UserEntity(UUID.randomUUID(), email, fullName, null, passwordHash, AuthRole.ROLE_ADMIN);
     }
 
+    public static UserEntity googleCandidate(String email, String fullName, String googleSubject) {
+        UserEntity user = new UserEntity(UUID.randomUUID(), email, fullName, null, null, AuthRole.ROLE_CANDIDATE);
+        user.authProvider = AuthProvider.GOOGLE;
+        user.googleSubject = googleSubject;
+        return user;
+    }
+
     public UUID getId() { return id; }
     public String getEmail() { return email; }
     public String getFullName() { return fullName; }
     public String getRollNumber() { return rollNumber; }
     public String getPasswordHash() { return passwordHash; }
+    public AuthProvider getAuthProvider() { return authProvider; }
+    public String getGoogleSubject() { return googleSubject; }
     public AuthRole getRole() { return role; }
     public boolean isActive() { return active; }
     public Instant getCreatedAt() { return createdAt; }
@@ -89,6 +106,12 @@ public class UserEntity {
     public void setAvatar(String avatarUrl, String avatarPublicId) {
         this.avatarUrl = avatarUrl;
         this.avatarPublicId = avatarPublicId;
+        this.updatedAt = Instant.now();
+    }
+
+    public void linkGoogleIdentity(String subject) {
+        this.googleSubject = subject;
+        this.authProvider = this.passwordHash == null ? AuthProvider.GOOGLE : AuthProvider.BOTH;
         this.updatedAt = Instant.now();
     }
 }

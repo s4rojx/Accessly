@@ -37,6 +37,8 @@ server:
 
 assessly:
   frontend-origin: ${ASSESSLY_FRONTEND_ORIGIN:http://localhost:5173}
+  google:
+    client-id: ${GOOGLE_CLIENT_ID:}
   redis:
     prewarm-minutes-before: ${ASSESSLY_REDIS_PREWARM_MINUTES:15}
     sync-interval-ms: ${ASSESSLY_REDIS_SYNC_INTERVAL_MS:30000}

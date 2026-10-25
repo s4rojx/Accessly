@@ -61,7 +61,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/signup", "/api/v1/auth/login",
-                                "/api/v1/auth/refresh", "/api/v1/auth/logout").permitAll()
+                                "/api/v1/auth/refresh", "/api/v1/auth/logout", "/api/v1/auth/oauth2/google").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/csrf").permitAll()
                         .requestMatchers("/api/v1/profile/**").authenticated()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
@@ -82,7 +82,8 @@ public class SecurityConfig {
     @Bean
     DaoAuthenticationProvider daoAuthenticationProvider(PasswordEncoder encoder) {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-        provider.setUserDetailsService(email -> users.findByEmail(email).filter(UserEntity::isActive)
+        provider.setUserDetailsService(email -> users.findByEmail(email)
+                .filter(user -> user.isActive() && user.getPasswordHash() != null)
                 .map(user -> User.withUsername(user.getEmail()).password(user.getPasswordHash())
                         .authorities(user.getRole().name()).build())
                 .orElseThrow(() -> new UsernameNotFoundException("User not found")));
@@ -98,7 +99,7 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of(origin));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Request-ID", "X-XSRF-TOKEN"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Request-ID", "X-XSRF-TOKEN", "X-Assessly-Portal"));
         configuration.setExposedHeaders(List.of("X-Request-ID"));
         configuration.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

@@ -30,7 +30,8 @@ export interface AssesslyApi {
   updateProfile(input: { fullName: string; rollNumber: string }): Promise<User>;
   uploadAvatar(file: File): Promise<User>;
   removeAvatar(): Promise<User>;
-  login(email: string, password: string): Promise<User>;
+  login(email: string, password: string, portal?: 'admin'): Promise<User>;
+  loginWithGoogle(credential: string): Promise<User>;
   signup(input: { fullName: string; email: string; rollNumber: string; password: string }): Promise<User>;
   logout(): Promise<void>;
   listExams(): Promise<Exam[]>;
@@ -183,8 +184,20 @@ export class HttpApiAdapter implements AssesslyApi {
     }
   }
 
-  async login(email: string, password: string) {
-    const auth = await this.request<BackendAuth>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }, false);
+  async login(email: string, password: string, portal?: 'admin') {
+    const auth = await this.request<BackendAuth>('/auth/login', {
+      method: 'POST', body: JSON.stringify({ email, password }),
+      headers: portal ? { 'X-Assessly-Portal': portal } : undefined,
+    }, false);
+    this.accessToken = auth.accessToken;
+    setCurrentUser(auth.user);
+    return auth.user;
+  }
+
+  async loginWithGoogle(credential: string) {
+    const auth = await this.request<BackendAuth>('/auth/oauth2/google', {
+      method: 'POST', body: JSON.stringify({ credential }),
+    }, false);
     this.accessToken = auth.accessToken;
     setCurrentUser(auth.user);
     return auth.user;

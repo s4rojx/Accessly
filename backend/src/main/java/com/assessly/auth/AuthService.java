@@ -4,6 +4,7 @@ import com.assessly.infrastructure.redis.SessionLockService;
 import com.assessly.shared.ApiException;
 import com.assessly.user.UserEntity;
 import com.assessly.user.UserRepository;
+import com.assessly.user.AuthRole;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -33,12 +34,13 @@ public class AuthService {
     private final JwtService jwtService;
     private final JwtProperties jwtProperties;
     private final SessionLockService sessionLock;
+    private final GoogleIdentityVerifier googleIdentityVerifier;
     private final SecureRandom secureRandom = new SecureRandom();
     private final Clock clock = Clock.systemUTC();
 
     public AuthService(UserRepository users, RefreshTokenRepository refreshTokens, PasswordEncoder passwordEncoder,
                        AuthenticationManager authenticationManager, JwtService jwtService, JwtProperties jwtProperties,
-                       SessionLockService sessionLock) {
+                       SessionLockService sessionLock, GoogleIdentityVerifier googleIdentityVerifier) {
         this.users = users;
         this.refreshTokens = refreshTokens;
         this.passwordEncoder = passwordEncoder;
@@ -46,6 +48,7 @@ public class AuthService {
         this.jwtService = jwtService;
         this.jwtProperties = jwtProperties;
         this.sessionLock = sessionLock;
+        this.googleIdentityVerifier = googleIdentityVerifier;
     }
 
     @Transactional
@@ -63,6 +66,11 @@ public class AuthService {
 
     @Transactional
     public AuthTokens login(LoginRequest request) {
+        return login(request, false);
+    }
+
+    @Transactional
+    public AuthTokens login(LoginRequest request, boolean adminPortal) {
         String email = normalizeEmail(request.email());
         try {
             authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(email, request.password()));
@@ -72,6 +80,37 @@ public class AuthService {
         UserEntity user = users.findByEmail(email)
                 .filter(UserEntity::isActive)
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "AUTHENTICATION_FAILED", "Authentication failed"));
+        if (adminPortal && user.getRole() != AuthRole.ROLE_ADMIN) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "FORBIDDEN", "Administrator access is required");
+        }
+        return issueTokens(user, UUID.randomUUID());
+    }
+
+    @Transactional
+    public AuthTokens loginWithGoogle(GoogleLoginRequest request) {
+        GoogleIdentityVerifier.GoogleIdentity identity = googleIdentityVerifier.verify(request.credential());
+        String email = normalizeEmail(identity.email());
+        UserEntity user = users.findByGoogleSubject(identity.subject()).orElse(null);
+        if (user != null && !user.getEmail().equals(email)) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "GOOGLE_AUTH_FAILED", "Google authentication failed");
+        }
+        if (user == null) {
+            user = users.findByEmail(email).orElse(null);
+            if (user != null && user.getRole() == AuthRole.ROLE_ADMIN) {
+                throw new ApiException(HttpStatus.FORBIDDEN, "FORBIDDEN", "Administrator access is required");
+            }
+            if (user == null) user = UserEntity.googleCandidate(email, identity.fullName().trim(), identity.subject());
+            else if (user.getGoogleSubject() == null) user.linkGoogleIdentity(identity.subject());
+            else if (!user.getGoogleSubject().equals(identity.subject())) {
+                throw new ApiException(HttpStatus.UNAUTHORIZED, "GOOGLE_AUTH_FAILED", "Google authentication failed");
+            }
+        }
+        if (user.getRole() == AuthRole.ROLE_ADMIN) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "FORBIDDEN", "Administrator access is required");
+        }
+        if (!user.isActive()) throw new ApiException(HttpStatus.UNAUTHORIZED, "AUTHENTICATION_FAILED", "Authentication failed");
+        if (identity.pictureUrl() != null && user.getAvatarUrl() == null) user.setAvatar(identity.pictureUrl(), null);
+        user = users.save(user);
         return issueTokens(user, UUID.randomUUID());
     }
 
