@@ -14,3 +14,8 @@ export interface Attempt { id: string; examId: string; effectiveEndEpochMs: numb
 export interface Result { id: string; examId: string; submittedAt: string; totalMarks: number; maximumMarks: number; percentage: number; correct: number; incorrect: number; unattempted: number; timeTakenMinutes: number; published: boolean; }
 export interface ResultPublication { examId: string; publishedCount: number; publishedAt: string; }
 export interface Telemetry { status: 'CONNECTED' | 'CONNECTING' | 'RECONNECTING' | 'DISCONNECTED'; lastUpdated?: string; total: number; notStarted: number; inProgress: number; submitted: number; }
+export interface AdminCandidate { id: string; fullName: string; email: string; rollNumber?: string | null; active: boolean; }
+export interface AdminResult { candidateId: string; fullName: string; email: string; rollNumber?: string | null; attemptStatus: string; submittedAt?: string | null; totalMarks?: number | null; maximumMarks?: number | null; percentage?: number | null; correct: number; incorrect: number; unattempted: number; published: boolean; eligible: boolean; }
+export interface ScoreBucket { label: string; count: number; }
+export interface QuestionAnalytics { questionId: string; prompt: string; gradedAttempts: number; attempted: number; correct: number; incorrect: number; unattempted: number; accuracyPercentage: number; }
+export interface ExamAnalytics { examId: string; rosterSize: number; started: number; submitted: number; expired: number; notStarted: number; gradedResults: number; publishedResults: number; averagePercentage?: number | null; medianPercentage?: number | null; highestPercentage?: number | null; lowestPercentage?: number | null; scoreDistribution: ScoreBucket[]; questionCorrectness: QuestionAnalytics[]; }

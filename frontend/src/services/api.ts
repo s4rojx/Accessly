@@ -1,4 +1,4 @@
-import type { Attempt, AttemptAction, AttemptAnswer, Exam, Result, ResultPublication, User, Question } from '../types';
+import type { AdminCandidate, AdminResult, Attempt, AttemptAction, AttemptAnswer, Exam, ExamAnalytics, Result, ResultPublication, User, Question } from '../types';
 import { getCurrentUser, setCurrentUser } from './session';
 
 export interface QuestionInput {
@@ -44,6 +44,10 @@ export interface AssesslyApi {
   createExam(input: ExamInput): Promise<Exam>;
   updateExam(id: string, input: ExamInput): Promise<Exam>;
   publishExam(id: string): Promise<Exam>;
+  listCandidates(): Promise<AdminCandidate[]>;
+  getAdminResults(id: string): Promise<AdminResult[]>;
+  getExamAnalytics(id: string): Promise<ExamAnalytics>;
+  getRoster(id: string): Promise<string[]>;
   replaceRoster(id: string, candidateIds: string[]): Promise<void>;
   startAttempt(examId: string): Promise<Attempt>;
   sendAttemptAction(examId: string, action: AttemptAction): Promise<AttemptAnswer>;
@@ -80,6 +84,10 @@ type BackendResult = {
   correct: number; incorrect: number; unattempted: number; timeTakenMinutes: number; published: boolean;
 };
 type BackendResultPublication = { examId: string; publishedCount: number; publishedAt: string };
+type BackendCandidate = { id: string; fullName: string; email: string; rollNumber?: string | null; active: boolean };
+type BackendAdminResult = { candidateId: string; fullName: string; email: string; rollNumber?: string | null; attemptStatus: string; submittedAt?: string | null; totalMarks?: number | null; maximumMarks?: number | null; percentage?: number | null; correct: number; incorrect: number; unattempted: number; published: boolean; eligible: boolean };
+type BackendAnalytics = { examId: string; rosterSize: number; started: number; submitted: number; expired: number; notStarted: number; gradedResults: number; publishedResults: number; averagePercentage?: number | null; medianPercentage?: number | null; highestPercentage?: number | null; lowestPercentage?: number | null; scoreDistribution: Array<{ label: string; count: number }>; questionCorrectness: Array<{ questionId: string; prompt: string; gradedAttempts: number; attempted: number; correct: number; incorrect: number; unattempted: number; accuracyPercentage: number }> };
+type BackendRoster = { examId: string; candidateIds: string[] };
 type BackendAuth = { accessToken: string; tokenType: string; expiresInSeconds: number; user: User };
 type BackendError = { code?: string; message?: string };
 
@@ -248,6 +256,10 @@ export class HttpApiAdapter implements AssesslyApi {
   async createExam(input: ExamInput) { return mapExam(await this.request<BackendExam>('/admin/exams', { method: 'POST', body: JSON.stringify(input) })); }
   async updateExam(id: string, input: ExamInput) { return mapExam(await this.request<BackendExam>(`/admin/exams/${id}`, { method: 'PUT', body: JSON.stringify(input) })); }
   async publishExam(id: string) { return mapExam(await this.request<BackendExam>(`/admin/exams/${id}/publish`, { method: 'POST' })); }
+  async listCandidates() { return this.request<BackendCandidate[]>('/admin/candidates'); }
+  async getAdminResults(id: string) { return this.request<BackendAdminResult[]>(`/admin/exams/${id}/results`); }
+  async getExamAnalytics(id: string) { return this.request<BackendAnalytics>(`/admin/exams/${id}/analytics`); }
+  async getRoster(id: string) { return (await this.request<BackendRoster>(`/admin/exams/${id}/roster`)).candidateIds; }
   async replaceRoster(id: string, candidateIds: string[]) { await this.request(`/admin/exams/${id}/roster`, { method: 'PUT', body: JSON.stringify({ candidateIds }) }); }
 
   async startAttempt(examId: string) { return mapAttempt(await this.request<BackendAttempt>(`/student/exams/${examId}/start`, { method: 'POST' })); }
