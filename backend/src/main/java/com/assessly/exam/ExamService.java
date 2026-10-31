@@ -54,6 +54,11 @@ public class ExamService {
         return toAdmin(ownedExam(adminId, examId));
     }
 
+    @Transactional(readOnly = true)
+    public void assertOwned(UUID adminId, UUID examId) {
+        ownedExam(adminId, examId);
+    }
+
     @Transactional
     public ExamDtos.AdminResponse create(UUID adminId, ExamDtos.UpsertRequest request) {
         validateSchedule(request.windowStartTime(), request.windowEndTime(), request.durationMinutes());

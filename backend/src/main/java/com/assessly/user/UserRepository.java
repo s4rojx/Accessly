@@ -1,6 +1,7 @@
 package com.assessly.user;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -11,4 +12,5 @@ public interface UserRepository extends JpaRepository<UserEntity, UUID> {
     boolean existsByEmail(String email);
     boolean existsByRollNumber(String rollNumber);
     boolean existsByRole(AuthRole role);
+    List<UserEntity> findAllByRoleAndActiveTrueOrderByFullName(AuthRole role);
 }

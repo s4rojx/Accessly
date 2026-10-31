@@ -10,6 +10,7 @@ import java.util.UUID;
 
 public interface AttemptRepository extends JpaRepository<AttemptEntity, UUID> {
     Optional<AttemptEntity> findByExamIdAndCandidateId(UUID examId, UUID candidateId);
+    List<AttemptEntity> findByExamId(UUID examId);
     List<AttemptEntity> findByExamIdAndStatus(UUID examId, String status);
 
     @Query(value = "select * from attempts where exam_id = :examId and candidate_id = :candidateId for update", nativeQuery = true)

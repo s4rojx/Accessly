@@ -23,10 +23,12 @@ import java.util.UUID;
 public class ExamController {
     private final ExamService service;
     private final ExamPreWarmerService preWarmer;
+    private final ExamAnalyticsService analytics;
 
-    public ExamController(ExamService service, ExamPreWarmerService preWarmer) {
+    public ExamController(ExamService service, ExamPreWarmerService preWarmer, ExamAnalyticsService analytics) {
         this.service = service;
         this.preWarmer = preWarmer;
+        this.analytics = analytics;
     }
 
     @GetMapping("/admin/exams")
@@ -55,7 +57,24 @@ public class ExamController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasRole('ADMIN')")
     public void prewarm(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID examId) {
+        service.assertOwned(userId(jwt), examId);
         preWarmer.prewarmExam(examId);
+    }
+
+    @GetMapping("/admin/candidates")
+    @PreAuthorize("hasRole('ADMIN')")
+    public List<ExamDtos.CandidateDirectoryResponse> listCandidates() { return analytics.listCandidates(); }
+
+    @GetMapping("/admin/exams/{examId}/results")
+    @PreAuthorize("hasRole('ADMIN')")
+    public List<ExamDtos.AdminResultResponse> results(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID examId) {
+        return analytics.listResults(userId(jwt), examId);
+    }
+
+    @GetMapping("/admin/exams/{examId}/analytics")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ExamDtos.AnalyticsResponse analytics(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID examId) {
+        return analytics.analytics(userId(jwt), examId);
     }
 
     @GetMapping("/admin/exams/{examId}/roster")
