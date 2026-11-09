@@ -1,31 +1,52 @@
+
+<div align="center">
+
 # Assessly
 
-Assessly is an online assessment platform planned around a Spring Boot API, Kafka event workflows, Redis-backed exam state, and a React candidate/teacher interface.
+**A high-concurrency, fault-tolerant online assessment platform.**
 
-## Repository layout
+Built with Spring Boot, React, PostgreSQL, and Redis.
 
-- `frontend/` — React, TypeScript, and Vite application. The current milestone uses deterministic session-local adapters.
-- `docs/` — backend architecture, API contracts, data, messaging, reliability, and delivery documentation.
+![Java](https://img.shields.io/badge/Java-21-orange?style=flat-square&logo=openjdk)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.3.13-brightgreen?style=flat-square&logo=spring)
+![React](https://img.shields.io/badge/React-18-blue?style=flat-square&logo=react)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=flat-square&logo=typescript)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue?style=flat-square&logo=postgresql)
+![Redis](https://img.shields.io/badge/Redis-7-red?style=flat-square&logo=redis)
 
-## Frontend development
+</div>
 
-```bash
-cd frontend
-npm install
-npm run dev
+---
+
+##  Overview
+
+Assessly is an enterprise-grade assessment platform designed to survive the intense load of synchronized campus exams. Traditional LMS platforms often buckle under the "thundering herd" of students starting an exam simultaneously, or when a thousand students hit "Submit" at exactly 11:00:00 AM.
+
+Assessly solves this by utilizing a modular monolith architecture that pushes hot-path mutations to **Redis** via atomic Lua scripts, ensuring ultra-low latency and shielding the durable **PostgreSQL** source of truth from connection pool starvation.
+
+---
+
+##  Key Features
+
+- **Cryptographic Shuffling:** Per-student deterministic question and option permutations using HMAC-SHA256, preventing answer sharing while allowing consistent paper reconstruction on refresh.
+- **Server-Authoritative Timing:** Client timers are strictly for display. The server enforces strict cutoffs using Redis `TIME` and PostgreSQL row locks, making clock manipulation impossible.
+- **Redis State Engine:** Lightning-fast `SAVE_AND_NEXT` and `MARK_FOR_REVIEW` actions backed by atomic Lua scripts.
+- **Fault-Tolerant Recovery:** Redis-to-PostgreSQL asynchronous synchronization every 30 seconds bounds state loss in the event of a cache failure.
+- **Secure by Design:** Double-submit CSRF protection, strict role isolation, short-lived JWTs with rotating HttpOnly refresh cookies, and zero-knowledge client payload projections (correct answers never reach the browser).
+- **Admin Analytics:** Synchronous, on-demand result aggregation and score distributions computed directly from PostgreSQL.
+
+---
+
+##  Architecture
+
+```text
+Client (React/TS)
+   │ (HTTPS REST)
+   ▼
+Nginx (Load Balancer)
+   │
+   ▼
+Spring Boot App (Java 21)
+   ├──▶ Redis (Active Attempt State, Rate Limiting, Locks)
+   └──▶ PostgreSQL (Durable Source of Truth, Analytics)
 ```
-
-Validation commands:
-
-```bash
-npm run typecheck
-npm run lint
-npm run test
-npm run build
-```
-
-Copy `frontend/.env.example` to `frontend/.env` only when local configuration is required. Never put secrets in Vite environment variables; values prefixed with `VITE_` are bundled for the browser.
-
-## Delivery workflow
-
-Changes should be split into focused commits such as repository hygiene, security/configuration, frontend behavior, and tests. Keep generated directories and local configuration out of commits.
